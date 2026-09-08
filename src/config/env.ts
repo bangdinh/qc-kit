@@ -12,8 +12,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export type EnvName = 'local' | 'dev' | 'staging' | 'prod';
-
 let loaded = false;
 
 /** Parse the root .env file into process.env without overwriting real env vars. */
@@ -31,11 +29,18 @@ export function loadDotEnv(file = path.resolve(process.cwd(), '.env')): void {
 
     const key = line.slice(0, eq).trim();
     let value = line.slice(eq + 1).trim();
+
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
     ) {
       value = value.slice(1, -1);
+    } else {
+      // Unquoted value: drop a trailing `# comment`. The hash must follow
+      // whitespace, so a password like "Pw#1" survives — quote the value when
+      // it really does contain " #".
+      const comment = value.search(/\s#/);
+      if (comment !== -1) value = value.slice(0, comment).trim();
     }
     // `KEY=` with nothing after it means "leave it to the default", not "".
     // Without this, .env.example's blank placeholders would override every
@@ -81,14 +86,11 @@ export function envNumber(key: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-/** Which environment this run targets. */
-export function currentEnv(): EnvName {
-  const value = (envVar('TEST_ENV', 'local') as EnvName) ?? 'local';
-  const allowed: EnvName[] = ['local', 'dev', 'staging', 'prod'];
-  if (!allowed.includes(value)) {
-    throw new Error(`Unknown TEST_ENV "${value}". Expected one of: ${allowed.join(', ')}`);
-  }
-  return value;
-}
-
 export const isCI = envFlag('CI');
+
+/*
+ * Which environments exist, and which one this run targets, is not decided
+ * here: the list of names is product knowledge. A project declares its table
+ * with `defineEnvironments()` and gets `config.name` back — see
+ * `define-environments.ts` and `environments.ts`.
+ */

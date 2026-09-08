@@ -1,427 +1,190 @@
-# Project Structure — AutomationPlaywright
+# Kiến trúc — AutomationPlaywright
 
-Playwright + TypeScript end-to-end automation framework using the **Page Object Model
-with merged custom fixtures**. This document maps every folder and file to its
-responsibility, the layering rules between them, and where new code belongs.
+[README.md](README.md) nói về **cách chạy** suite. Tài liệu này nói về **vì sao nó có
+hình dạng như vậy**: các tầng, luật phụ thuộc duy nhất giữ chúng tách nhau, và những
+điểm nối mà một dự án mới cắm vào.
 
----
-
-## 1. Directory tree
-
-```
-AutomationPlaywright/
-├── .env.example                  # every variable the framework reads (template)
-├── .gitignore                    # ignores node_modules, reports, .env, .auth state
-├── package.json                  # scripts + devDependencies (@playwright/test, typescript)
-├── package-lock.json
-├── tsconfig.json                 # strict TS, ES2022/CommonJS, @-path aliases, noEmit
-├── playwright.config.ts          # projects, timeouts, reporters, baseURL, storageState
-├── README.md                     # quick start & usage guide
-├── STRUCTURE.md                  # this file
-│
-├── playwright/
-│   └── .auth/                    # git-ignored signed-in storage states
-│       └── .gitkeep              # keeps the folder in git
-│
-├── src/                          # framework code — never contains test specs
-│   ├── config/
-│   │   ├── env.ts                # dependency-free .env loader + typed getters
-│   │   ├── environments.ts       # per-env URLs/timeouts table + resolved `config`
-│   │   └── index.ts              # re-exports env + environments
-│   │
-│   ├── core/                     # base classes — rarely change
-│   │   ├── base.page.ts          # BasePage (abstract)
-│   │   ├── base.component.ts     # BaseComponent (abstract)
-│   │   ├── step.ts               # reporter steps, safe outside a running test
-│   │   ├── logger.ts             # level-aware console logger
-│   │   └── index.ts
-│   │
-│   ├── pages/
-│   │   └── index.ts              # placeholder + page-object template in comments
-│   │
-│   ├── components/
-│   │   └── index.ts              # placeholder for shared UI components
-│   │
-│   ├── api/
-│   │   ├── clients/
-│   │   │   ├── base.client.ts    # BaseApiClient (abstract)
-│   │   │   └── index.ts          # register resource clients here
-│   │   ├── models/
-│   │   │   └── index.ts          # API request/response interfaces
-│   │   └── index.ts
-│   │
-│   ├── fixtures/                 # the layer tests import
-│   │   ├── pages.fixture.ts      # createPage() + per-page fixtures
-│   │   ├── api.fixture.ts        # apiToken, apiContext, createClient()
-│   │   ├── data.fixture.ts       # testData: accounts + factories
-│   │   └── index.ts              # mergeTests(...) -> exported `test` / `expect`
-│   │
-│   ├── data/
-│   │   ├── credentials.ts        # accounts resolved from .env (lazy getters)
-│   │   ├── factories/
-│   │   │   └── user.factory.ts   # buildUser(), buildUsers()
-│   │   ├── static/
-│   │   │   └── README.md         # shared JSON/CSV fixture data lives here
-│   │   └── index.ts
-│   │
-│   ├── utils/
-│   │   ├── random.util.ts        # randomString/Int/Email/Pick, unique()
-│   │   ├── date.util.ts          # today, addDays, toISODate, fileStamp
-│   │   ├── file.util.ts          # ensureDir, readJson, writeJson, fileExists
-│   │   ├── wait.util.ts          # sleep, pollUntil (non-UI waits only)
-│   │   └── index.ts
-│   │
-│   └── types/
-│       └── index.ts              # Credentials, UserRole, TestUser, Overrides<T>
-│
-└── tests/                        # specs only — no framework code
-    ├── README.md                 # "where does a test go" table
-    ├── example.spec.ts           # Playwright scaffold sample (safe to delete)
-    ├── setup/
-    │   └── auth.setup.ts         # logs in once, saves storage state
-    ├── ui/.gitkeep               # single-feature UI specs
-    ├── e2e/.gitkeep              # cross-feature journeys
-    └── api/.gitkeep              # API-only specs (no browser)
-```
-
-Generated at runtime and git-ignored: `test-results/`, `playwright-report/`,
-`blob-report/`, `playwright/.cache/`, `playwright/.auth/user.json`, `.env`.
+Tài liệu này cố ý không liệt kê file. Danh sách file sẽ lạc hậu ngay sau lần refactor đầu
+tiên và từ đó trở đi nó gây hiểu sai — cây thư mục ở
+[README §6](README.md#6-cấu-trúc-thư-mục) mới là bản đồ, còn code mới là nguồn sự thật.
+Những gì viết ở đây là phần vẫn còn đúng sau một năm nữa.
 
 ---
 
-## 2. Layers and dependency direction
+## 1. Hai loại tri thức
+
+Mọi dòng trong `src/` thuộc về một trong hai loại, và toàn bộ thiết kế đi ra từ việc giữ
+chúng tách bạch:
+
+| | **Tri thức framework** | **Tri thức sản phẩm** |
+|---|---|---|
+| Trả lời câu hỏi | *Chúng ta test như thế nào?* | *Chúng ta đang test cái gì?* |
+| Ví dụ | một step được ghi vào report ra sao, session được cache thế nào, `.env` override một giá trị mặc định ra sao, lỗi API được định dạng thế nào | `beta` trỏ vào URL nào, mã doanh nghiệp là gì, nút submit ghi chữ "Tiếp tục" |
+| Thay đổi khi | cả nhóm đổi cách làm test | sản phẩm thay đổi |
+| Nằm ở | `src/config` (loader + resolver), `src/core`, `src/utils`, `src/api/clients/base.client.ts` | `src/pages`, `src/components`, `src/data`, `src/config/environments.ts`, `tests/` |
+| Thuộc về | mọi dự án — đây chính là phần sau này thành package dùng chung | riêng dự án này |
+
+Nếu một thay đổi của sản phẩm buộc bạn phải sửa code framework thì ranh giới đã rò rỉ.
+Đó là tín hiệu hữu ích nhất mà kiến trúc này cho bạn.
+
+## 2. Luật phụ thuộc
 
 ```
-tests/*.spec.ts
-      │  imports only
+tests/**/*.spec.ts
+      │ chỉ import
       ▼
-src/fixtures          ← the single entry point for specs (`test`, `expect`)
+src/fixtures ──────────────────────── cửa vào duy nhất của spec
       │
-      ├──► src/pages       ──► src/core/base.page
-      ├──► src/components  ──► src/core/base.component
-      ├──► src/api/clients ──► src/core/logger
-      └──► src/data        ──► src/utils, src/types
-                                   │
-                                   ▼
-                            src/config (env + environments)
+      ├──► src/pages  ─┐
+      ├──► src/components ─┤
+      ├──► src/api/clients ─┼──► src/core ──► src/config, src/utils, src/types
+      └──► src/data ────────┘
 ```
 
-Rules:
+**Phụ thuộc chỉ chảy một chiều. Code framework không bao giờ import code sản phẩm.**
 
-- A spec imports **only** `src/fixtures` (plus its own page/client classes when using
-  `createPage` / `createClient`). It never imports `@playwright/test` directly.
-- `src/core` stays application-agnostic — base classes and the logger, nothing else.
-- Page objects hold locators and intent-revealing actions; test-specific assertions
-  stay in the spec, page-level assertions live on the page object as `expectX()`.
-- Secrets never live in source — only in `.env` / CI secrets, read through
-  `src/config/env.ts`.
+Luật này kiểm chứng được, và đáng chạy trước mỗi lần merge:
 
----
+```bash
+grep -rE "from '\.\./(pages|components|data)" src/core src/config src/utils src/types
+```
 
-## 3. File-by-file responsibilities
+In ra dòng nào là vi phạm dòng đó. Mọi thứ còn lại trong tài liệu này đều là hệ quả của
+luật đó.
 
-### Root configuration
+Ba hệ quả:
 
-| File | Responsibility |
-|---|---|
-| `playwright.config.ts` | Loads `.env`, sets `testDir: ./tests`, `outputDir: ./test-results`, full parallelism, CI retries (2) and workers (4), timeouts from `config.timeouts`, reporters (list + html, plus junit on CI), and `use` defaults: `baseURL`, trace/screenshot/video on failure, `testIdAttribute: 'data-testid'`. Defines the projects (§4). |
-| `tsconfig.json` | Strict ES2022/CommonJS, `noEmit`, and the `@`-aliases in §5. Includes `src/**/*.ts`, `tests/**/*.ts`, `playwright.config.ts`. |
-| `.env.example` | Documents every variable: `TEST_ENV`, `BASE_URL`, `API_URL`, `USER_*` / `ADMIN_*` accounts, `API_TOKEN`, the four timeout overrides, `LOG_LEVEL`. |
-| `package.json` | Scripts (§6) and devDependencies only — no runtime dependencies beyond Playwright. |
+- Spec import `src/fixtures`, không import thẳng `@playwright/test`. Chính điều đó cho
+  phép thêm một fixture — log, dọn dữ liệu, một role mới — mà không phải sửa một spec
+  nào.
+- Spec không bao giờ tự khởi tạo page object hay HTTP client; nó xin từ fixture.
+- Page object giữ locator và các hành động mô tả ý định. Assertion thuộc về trang thì
+  nằm trên nó dưới dạng `expectX()`; assertion riêng của một kịch bản thì ở lại trong
+  spec. Đây là thứ cho phép một page object phục vụ hai mươi test.
 
-### `src/config`
+## 3. Các điểm nối
 
-| File | Exports |
-|---|---|
-| `env.ts` | `loadDotEnv()` (hand-rolled `.env` parser that never overwrites real env vars), the internal `readEnv()`, `envVar()`, `envFlag()`, `envNumber()`, `currentEnv()` (validates local / dev / staging / prod), `isCI`, type `EnvName`. Resolution order: process env → `.env` → declared default. **A blank value counts as absent** at both layers — `KEY=` is skipped by the parser and an empty `process.env` value is ignored by `readEnv()` — so `.env.example`'s empty placeholders can never override the `environments.ts` table with `''` or a `0` timeout. |
-| `environments.ts` | `EnvironmentConfig` interface, the per-environment table of `baseURL` / `apiURL` / timeouts, `getConfig()` (applies `.env` overrides on top of the table) and the resolved singleton `config`. |
+Ở những chỗ code framework cần thứ mà chỉ sản phẩm mới biết, nó nhận thứ đó qua tham số.
+Bốn điểm nối dưới đây là API ổn định — những hợp đồng sống sót qua refactor, và là chỗ
+một dự án thứ hai cắm vào.
 
-### `src/core`
+**Môi trường** — framework biết cách đọc một bảng; dự án sở hữu cái bảng đó.
 
-| File | Exports |
-|---|---|
-| `base.page.ts` | `abstract class BasePage` — `path` field, `open()`, `waitUntilLoaded()`, `title`, `url`, `reload()`, `screenshot()`, plus protected `step()`, `clickWhenReady()`, `fillIfPresent()`, `isVisible()`. `open`, `reload` and `screenshot` are already wrapped in reporter steps. |
-| `base.component.ts` | `abstract class BaseComponent` — root-locator-scoped UI piece with `isVisible()` and `waitForVisible()`. |
-| `step.ts` | `step(title, body)` — wraps an action in a `test.step` when a test is running and simply runs it otherwise; `currentTestInfo()` returns the running `TestInfo` or `undefined`. Used by `BasePage` and `BaseApiClient`, so base classes stay usable from global setup and scripts. |
-| `logger.ts` | `logger.debug/info/warn/error`, filtered by `LOG_LEVEL`; `LogLevel` type. |
+```ts
+defineEnvironments(table, { fallback }) -> { names, resolve(): ResolvedEnvironment }
+```
 
-### `src/api`
+Thứ tự ưu tiên là cố định: biến môi trường thật của process → `.env` → giá trị mặc định
+trong bảng. Giá trị rỗng được coi như không có, nên các placeholder để trống trong
+`.env.example` không bao giờ ghi đè một mặc định thật. Danh sách tên lấy từ khoá của
+bảng, nên một `TEST_ENV` lạ sẽ fail ngay lập tức kèm danh sách tên hợp lệ, thay vì âm
+thầm chạy vào nhầm host.
 
-| File | Exports |
-|---|---|
-| `clients/base.client.ts` | `RequestOptions` and `abstract class BaseApiClient` — `basePath`, `url()`, `authHeaders()` (bearer token), `send()` (logs, throws on non-2xx unless `expectOk: false`) and `json<T>()`. |
-| `clients/index.ts` | Barrel; new resource clients (`UsersClient`, `OrdersClient`, …) are exported here. |
-| `models/index.ts` | Request/response interfaces shared by clients, factories and specs. |
+**Bố cục runner** — framework sở hữu đồ thị project; dự án sở hữu URL.
 
-### `src/fixtures`
+```ts
+definePlaywrightConfig({ env, projects?, extraProjects?, overrides? })
+```
 
-| File | Provides |
-|---|---|
-| `pages.fixture.ts` | `PageObjectClass<T>`, `PageFixtures`, and the `createPage(PageClass)` fixture; commented slots for dedicated page fixtures. |
-| `api.fixture.ts` | `apiToken` (from `API_TOKEN`, or a real login call), `apiContext` (an `APIRequestContext` pointed at `config.apiURL`, disposed after the test) and `createClient(ClientClass)`. |
-| `data.fixture.ts` | `testData` = `{ accounts, buildUser, buildUsers }`. |
-| `index.ts` | `mergeTests(pagesFixture, apiFixture, dataFixture)` exported as `test`, plus `expect` and the three fixture types. |
+Thứ đáng chia sẻ ở đây không phải timeout mà là *hình dạng*: đăng nhập một lần trong
+setup project, chạy spec đã đăng nhập ở một project, chạy spec `@guest` ở project khác
+không có session, và giữ spec API nằm ngoài browser. Làm sai hình dạng này chính là cách
+một suite kết thúc bằng việc đăng nhập lại ở từng spec file.
 
-### `src/data`, `src/utils`, `src/types`
+**Xác thực** — framework quyết định *khi nào* đăng nhập và session cache *ở đâu*; sản
+phẩm quyết định *bằng cách nào*.
 
-| File | Exports |
-|---|---|
-| `data/credentials.ts` | `accounts.standard` / `accounts.admin` as lazy getters reading `.env`. |
-| `data/factories/user.factory.ts` | `buildUser(overrides?)`, `buildUsers(count, overrides?)` — valid-by-default `TestUser`s with unique names. |
-| `utils/random.util.ts` | `randomString`, `randomInt`, `randomEmail`, `randomPick`, `unique` (no faker dependency). |
-| `utils/date.util.ts` | `today`, `addDays`, `toISODate`, `fileStamp`. |
-| `utils/file.util.ts` | `ensureDir`, `readJson<T>`, `writeJson`, `fileExists`. |
-| `utils/wait.util.ts` | `sleep`, `pollUntil` + `PollOptions` — for non-UI waits only. |
-| `types/index.ts` | `Credentials`, `UserRole`, `TestUser`, `Overrides<T>`. |
+```ts
+interface Authenticator { signIn(): Promise<void>; saveSession(file?): Promise<void> }
+type AuthenticatorFactory = (page: Page) => Authenticator | null   // null = chưa cấu hình
+```
 
-### `tests`
+`createAuthSetup(factory)` và `createAuthFixture(factory)` tiêu thụ hợp đồng này. Cả hai
+đều không biết là có tồn tại một màn hình đăng nhập. Page object của sản phẩm tự thích
+ứng với hợp đồng — cái adapter đó là nơi duy nhất hai thế giới gặp nhau.
 
-| Path | Contains |
-|---|---|
-| `tests/setup/auth.setup.ts` | Setup project: signs in with `accounts.standard` and saves `playwright/.auth/user.json`. Writes an empty state (with a warning) when credentials are absent, so dependent projects can still run. Add one setup file per role. |
-| `tests/ui/` | Single-page / single-feature UI checks, authenticated by default. |
-| `tests/e2e/` | Multi-page business journeys that cross features. |
-| `tests/api/` | Pure API specs — no browser is launched. |
-| `tests/example.spec.ts` | Playwright's scaffold sample against playwright.dev; delete once real specs exist. |
+**Khởi tạo đối tượng** — `createPage(PageClass)` và `createClient(ClientClass)` dựng các
+class của sản phẩm từ fixture của framework mà không cần gọi tên bất kỳ class nào.
 
----
+## 4. Luồng thực thi
 
-## 4. Playwright projects
+Sáu giai đoạn. Biết chúng là đáng, vì lỗi ở mỗi giai đoạn có hình dạng khác nhau.
 
-| Project | Test scope | Notes |
+| Giai đoạn | Chuyện gì xảy ra | Fail ở đây nghĩa là |
 |---|---|---|
-| `setup` | `**/*.setup.ts` | Runs first; produces the storage state. |
-| `api` | `tests/api` | `baseURL` = `config.apiURL`; no browser. |
-| `chromium` | `**/{ui,e2e}/**/*.spec.ts`, `grepInvert: @guest` | Desktop Chrome, signed in via `storageState`; `dependencies: ['setup']`. |
-| `chromium-guest` | `**/{ui,e2e}/**/*.spec.ts`, `grep: @guest` | Desktop Chrome with no storage state — login, registration, error paths. |
-| `firefox`, `mobile-chrome` | — | Commented out; enable once the suite is stable on Chromium. |
+| **0 · Cấu hình** | `.env` được đọc một lần, bảng môi trường phân giải thành một bộ URL và timeout, preset dựng đồ thị project | `TEST_ENV` sai, cấu hình không đọc được — fail trước khi có bất kỳ test nào tồn tại |
+| **1 · Khám phá** | Playwright gom các spec file, khớp chúng vào project, áp `grep` / `grepInvert` theo tag | Một spec chạy nhầm project, hoặc không chạy gì cả |
+| **2 · Setup project** | Chạy một lần. Dùng lại session cache nếu còn hạn; nếu không thì đăng nhập qua UI và ghi ra file | Toàn bộ test cần đăng nhập fail — nhìn vào đây trước tiên |
+| **3 · Khởi động worker** | Mỗi worker mở browser và nạp file session vào các context của nó | Session cũ hoặc rỗng: test bắt đầu ở trạng thái chưa đăng nhập |
+| **4 · Phân giải fixture** | Theo từng test, đúng thứ tự phụ thuộc. Chỉ những fixture mà test gọi tên mới được dựng | Một fixture đã ném lỗi trước khi thân test kịp chạy |
+| **5 · Thân test → teardown** | Page object và client được dựng, kịch bản chạy; fixture teardown theo thứ tự ngược, log và artifact được attach | Đây mới là lỗi assertion thật — kèm trace, screenshot, video, `run.log` |
 
-Tag-driven filtering is used throughout: `@guest` selects the signed-out project,
-`@smoke` and `@regression` are targeted by npm scripts.
+Phạm vi (scope) của fixture quyết định chi phí. Việc ở **worker scope** chạy một lần cho
+mỗi worker (một browser, một lần đăng nhập theo worker); việc ở **test scope** chạy lại
+theo từng test (một page, một page object). Đặt một thứ đắt đỏ ở test scope là lỗi hiệu
+năng phổ biến nhất trong một suite Playwright.
 
----
+## 5. Session và chạy song song
 
-## 5. Path aliases (`tsconfig.json`)
+Suite chạy `fullyParallel`. Ba luật giữ cho điều đó không biến thành một cơn bão đăng
+nhập:
 
-| Alias | Target |
-|---|---|
-| `@config/*` | `src/config/*` |
-| `@core/*` | `src/core/*` |
-| `@pages/*` | `src/pages/*` |
-| `@components/*` | `src/components/*` |
-| `@api/*` | `src/api/*` |
-| `@fixtures/*` | `src/fixtures/*` |
-| `@data/*` | `src/data/*` |
-| `@utils/*` | `src/utils/*` |
-| `@app-types/*` | `src/types/*` |
+1. **Mỗi file session chỉ có một người ghi.** Setup project sở hữu session dùng chung.
+   Login theo worker chỉ ghi vào file của riêng nó. Một spec tự đăng nhập cho mục đích
+   của nó thì mặc định không ghi gì cả.
+2. **Đăng nhập không bao giờ nằm trong `beforeEach`.** Nó hoặc chạy một lần cho cả lần
+   chạy (setup project), hoặc một lần cho mỗi worker (auth fixture). Đặt trong
+   `beforeEach` nghĩa là chạy lại ở từng spec file và tranh nhau cùng một đường dẫn.
+3. **Ghi file là atomic** — ghi ra file tạm rồi rename. Các worker đọc những file này
+   trong lúc một worker khác có thể đang làm mới; đọc trúng một file JSON dang dở sẽ làm
+   hỏng cả lần chạy vì một lý do không bao giờ tái hiện được.
 
----
+Một session đã cache được tin dùng khi nó còn trẻ hơn TTL và vẫn còn cookie. Mọi trường
+hợp khác — mất file, hết hạn, rỗng — đều có nghĩa là đăng nhập lại. Xoá thư mục cache
+luôn là một thao tác reset an toàn.
 
-## 6. npm scripts
+## 6. Report
 
-| Script | Command |
-|---|---|
-| `test` | `playwright test` |
-| `test:ui` | `playwright test --project=chromium` |
-| `test:api` | `playwright test --project=api` |
-| `test:guest` | `playwright test --project=chromium-guest` |
-| `test:headed` | `playwright test --project=chromium --headed` |
-| `test:debug` | `playwright test --debug` |
-| `test:watch` | `playwright test --ui` |
-| `test:smoke` | `playwright test --grep @smoke` |
-| `test:regression` | `playwright test --grep @regression` |
-| `report` | `playwright show-report` |
-| `trace` | `playwright show-trace` |
-| `codegen` | `playwright codegen` |
-| `typecheck` | `tsc --noEmit` |
-| `install:browsers` | `playwright install --with-deps` |
+Hai cơ chế, trên thực tế đều bắt buộc:
 
----
+- **Step.** Mọi method public của page object và component bọc thân hàm trong
+  `this.step(...)`, nhờ đó report đọc được thành `LoginPage: submit company code "fpt"`
+  thay vì ba hành động vô danh. Đây chính là lý do `BasePage` và `BaseComponent` chia
+  chung một lớp cơ sở: hồi chỉ page mới ghi được step, mọi thứ xảy ra bên trong header,
+  modal hay grid đều biến mất khỏi report — mà đó đúng là loại lỗi khó tái hiện nhất.
+- **Attachment.** Screenshot ghi vào thư mục output riêng của test đang chạy (nếu không
+  các worker song song sẽ ghi đè lên nhau), còn log được gom theo từng test và attach
+  dưới tên `run.log`. Trong CI, console là một luồng duy nhất mà mọi worker cùng dùng;
+  một dòng log không gắn với test nào là một dòng vô dụng.
 
-## 7. Where new code goes
+Trace, screenshot và video **chỉ thu khi fail** — bật trace toàn thời gian tốn nhiều hơn
+phần nó mang lại một khi suite đã lớn.
 
-| You are adding… | Put it in | Then |
+## 7. Code mới đi đâu
+
+Phân theo loại tri thức, không phải theo tên file:
+
+| Bạn đang thêm… | Tầng | Kế thừa / cắm vào |
 |---|---|---|
-| A new screen | `src/pages/<name>.page.ts` extending `BasePage` | export from `src/pages/index.ts`; optionally add a fixture in `pages.fixture.ts` |
-| A reusable UI piece | `src/components/<name>.component.ts` extending `BaseComponent` | export from `src/components/index.ts` |
-| A new API resource | `src/api/clients/<name>.client.ts` extending `BaseApiClient` | export from `clients/index.ts`; add its types to `api/models` |
-| Generated test data | `src/data/factories/<name>.factory.ts` | expose through `data.fixture.ts` if specs need it |
-| Stable shared payloads | `src/data/static/*.json` | load with `readJson()` or import directly (`resolveJsonModule` is on) |
-| A UI spec | `tests/ui/<feature>.spec.ts` | import `{ test, expect }` from `src/fixtures` |
-| A journey spec | `tests/e2e/<journey>.spec.ts` | tag `@guest` if it must start signed out |
-| An API spec | `tests/api/<resource>.spec.ts` | runs under the `api` project (no browser) |
-| A new environment | `src/config/environments.ts` | add the key to `EnvName` in `src/config/env.ts` |
-| A second logged-in role | `tests/setup/<role>.setup.ts` | write its own `playwright/.auth/<role>.json` and add a project that uses it |
+| Một màn hình | `src/pages` | `BasePage`; export ở file barrel, thêm fixture nếu dùng thường xuyên |
+| Một mảnh UI dùng lại được | `src/components` | `BaseComponent`, giới hạn trong một root locator |
+| Một tài nguyên API | `src/api/clients` | `BaseApiClient`; type của nó đặt ở `api/models` |
+| Dữ liệu test sinh ra | `src/data/factories` | expose qua data fixture |
+| Một role đăng nhập thứ hai | `src/data` (ai) + `tests/setup` (khi nào) | `AuthenticatorFactory` + `createAuthSetup` |
+| Một môi trường | `src/config/environments.ts` | một entry trong bảng — không cần gì thêm |
+| Một năng lực cắt ngang (dọn dữ liệu, giả lập network, matcher riêng) | `src/core` + một fixture | phải dùng được cho mọi sản phẩm, nếu không thì nó không phải core |
+| Một spec | `tests/ui`, `tests/e2e`, `tests/api` | xem [tests/README.md](tests/README.md) |
 
----
+Dòng cuối là dòng cần nghiêm khắc nhất. Một helper "generic, trừ mỗi cái field này" thì
+không phải generic; cứ để nó ở tầng sản phẩm cho tới khi có sản phẩm thứ hai cần đến.
 
-## 8. Execution flow — what runs, and in what order
+## 8. Vì sao việc tách này đáng công
 
-### 8.1 Stage 0 — config module graph (before any test exists)
+Repo này là repo đầu tiên trong nhiều repo sẽ có. Ranh giới ở §1 tồn tại để nửa framework
+sau này thành một package có version cho các dự án khác cài vào, thay vì bị copy — khi đó
+một bug trong lớp cơ sở được sửa một lần rồi release, chứ không phải sửa năm lần ở năm
+bản clone.
 
-`npm test` → `playwright test` → the CLI imports `playwright.config.ts`, and that single
-import triggers the whole config chain:
-
-```
-playwright.config.ts
- └─ import { config } from './src/config/environments'
-     └─ import … from './env'
-         ├─ env.ts body defines loadDotEnv / envVar / envFlag / envNumber / currentEnv
-         └─ env.ts evaluates `export const isCI = envFlag('CI')`
-             └─ calls loadDotEnv()  ← .env is parsed HERE, as an import side effect
-     └─ environments.ts evaluates `export const config = getConfig()`
-         ├─ currentEnv()  → validates TEST_ENV against local|dev|staging|prod
-         ├─ picks the matching block from the `environments` table
-         └─ applies BASE_URL / API_URL / *_TIMEOUT overrides from .env
- └─ top-level loadDotEnv()  → no-op, the `loaded` flag is already true
- └─ defineConfig({ … })     → reads config.baseURL, config.timeouts, isCI, currentEnv()
-```
-
-**Consequence to remember:** `config` is a module-level singleton computed at import time.
-Mutating `process.env` inside a test will *not* change `config`, and this chain re-runs
-once in every worker process, not once per run.
-
-### 8.2 Stage 1 — discovery and the project graph
-
-Playwright scans `testDir` per project and builds the dependency graph:
-
-```
-setup ──(dependencies)──► chromium
-api            (independent, starts immediately)
-chromium-guest (independent, starts immediately)
-```
-
-Current resolution, from `playwright test --list`:
-
-```
-[setup] › setup\auth.setup.ts:14:6 › authenticate as standard user
-Total: 1 test in 1 file
-```
-
-Two things that follow from this: `tests/ui`, `tests/e2e` and `tests/api` are still empty,
-and **`tests/example.spec.ts` is matched by no project at all** — it sits directly in
-`tests/`, so the `{ui,e2e}` testMatch skips it, the `api` project's `testDir` excludes it,
-and `setup` only takes `*.setup.ts`. It never runs. Delete it, or move it into `tests/ui/`
-if you want it as a live smoke check.
-
-### 8.3 Stage 2 — the `setup` project
-
-```
-worker process starts
- └─ loads tests/setup/auth.setup.ts
-     └─ imports src/data/credentials  → src/config/env   (.env parsed in this process)
-     └─ imports src/core/logger
- └─ built-in fixtures on demand: browser (worker scope) → context → page
- └─ test body
-     ├─ accounts.standard            → getter runs envVar('USER_USERNAME'/'USER_PASSWORD')
-     ├─ credentials blank?  → logger.warn → fs.writeFileSync empty storage state → return
-     └─ credentials present → page.goto('/login') → fill → click
-                            → expect(Log out).toBeVisible()
-                            → context.storageState({ path: playwright/.auth/user.json })
-```
-
-The `chromium` project starts only after this passes.
-
-### 8.4 Stage 3 — worker bootstrap for a UI / E2E spec
-
-```
-spec: import { test, expect } from '../../src/fixtures'
- └─ src/fixtures/index.ts
-     ├─ pages.fixture.ts  → src/core/base.page → src/core/logger
-     ├─ api.fixture.ts    → src/config/environments (→ env)   [BaseApiClient is a type-only import]
-     ├─ data.fixture.ts   → src/data/credentials      (→ env)
-     │                    → src/data/factories/user.factory → src/utils/random.util, src/types
-     └─ mergeTests(pagesFixture, apiFixture, dataFixture) → the exported `test`
-```
-
-### 8.5 Stage 4 — per-test fixture resolution
-
-Playwright builds only the fixtures a test actually names in its destructured argument.
-Resolution follows the dependency edges:
-
-```
-browser (worker)
-   └─ context  ── storageState from the project's `use`
-        └─ page
-             └─ createPage        ← closure that news up page objects
-
-apiToken (test scope; reads API_TOKEN)
-   └─ apiContext  ── request.newContext({ baseURL: config.apiURL, Authorization })
-        └─ createClient           ← closure that news up API clients
-
-testData (no dependencies) → { accounts, buildUser, buildUsers }
-```
-
-So `test('…', async ({ testData }) => …)` starts no browser context beyond the project
-default and never creates an `apiContext`.
-
-### 8.6 Stage 5 — the test body: which classes actually construct
-
-| Call in a spec | Class chain that runs |
-|---|---|
-| `createPage(LoginPage)` | `new LoginPage(page)` → `BasePage` constructor stores `page`; the class's locator fields are evaluated now, but locators are lazy — no DOM query yet |
-| `loginPage.open()` | `BasePage.open()` → `step('LoginPage: open "/login"')` → `logger.debug` → `page.goto(path, { waitUntil: 'domcontentloaded' })` |
-| `loginPage.someAction()` | subclass method → `this.step(…)` → optionally `BasePage.clickWhenReady()` / `fillIfPresent()` |
-| `loginPage.screenshot('x')` | `step(…)` → `currentTestInfo().outputPath('x.png')` → `page.screenshot` → `testInfo.attach()` — per-test path, so parallel workers never collide |
-| `new Header(page, root)` inside a page object | `BaseComponent` constructor → root-scoped locators |
-| `createClient(UsersClient)` | `new UsersClient(apiContext, apiToken)` → `BaseApiClient` constructor |
-| `users.getById('1')` | `BaseApiClient.json()` → `.send()` → `step('API GET /users/1')` → `logger.debug` → `authHeaders()` → `request.get(url)` → throws a formatted error when `!response.ok()` and `expectOk` is not `false` |
-
-### 8.7 Stage 6 — teardown and reporting
-
-Fixtures tear down in reverse creation order: `apiContext.dispose()` → page/context closed
-→ trace, screenshot and video retained **only on failure** → `list` + `html` reporters
-(plus `junit` on CI) write to `test-results/` and `playwright-report/`.
-
-### 8.8 Which "classes" are live at runtime
-
-| Symbol | Kind | Who creates it | When |
-|---|---|---|---|
-| `config` | plain object singleton | `environments.ts` module body | at first import, once per process |
-| `logger` | object literal (not a class) | module body | at import; `LOG_LEVEL` is re-read on every call |
-| `accounts` | object with lazy getters | module body | the **getter** runs at property access, so a missing `.env` fails at use, not at import |
-| `BasePage` | abstract | never directly | only via a subclass, through `createPage()` or `new` |
-| `BaseComponent` | abstract | a page object | when the page object builds its components |
-| `BaseApiClient` | abstract | never directly | only via a subclass, through `createClient()` |
-
-Because `src/pages`, `src/components` and `src/api/clients` currently hold only
-placeholders, **a run today instantiates none of these classes** — the only executable
-test is `auth.setup.ts`, which uses raw `page` locators. The base classes come alive as
-soon as the first real page object or API client lands.
-
-### 8.9 End-to-end sequence
-
-```mermaid
-sequenceDiagram
-    participant CLI as playwright CLI
-    participant Cfg as src/config
-    participant Setup as auth.setup.ts
-    participant W as worker (chromium)
-    participant Fx as src/fixtures
-    participant PO as page object / api client
-
-    CLI->>Cfg: import playwright.config.ts
-    Cfg->>Cfg: loadDotEnv() → currentEnv() → config singleton
-    CLI->>CLI: discover specs, build project graph
-    CLI->>Setup: run project "setup"
-    Setup->>Setup: accounts.standard → login → storageState saved
-    Setup-->>CLI: pass
-    CLI->>W: start project "chromium" (dependency met)
-    W->>Fx: import { test, expect } from src/fixtures
-    Fx->>Fx: mergeTests(pages, api, data)
-    W->>Fx: resolve only the requested fixtures
-    Fx->>W: page (with storageState), apiContext, testData
-    W->>PO: createPage(LoginPage) / createClient(UsersClient)
-    PO->>PO: BasePage.open() → logger → page.goto
-    PO-->>W: result
-    W->>W: assertions
-    W->>Fx: teardown (apiContext.dispose, context close)
-    W-->>CLI: result + trace/screenshot on failure
-```
-
-### 8.10 Note on `apiToken`
-
-Its doc comment says *"resolved once per worker"*, but it is declared with
-`{ scope: 'test' }`, so it is resolved once **per test**. That is harmless while it only
-reads `process.env.API_TOKEN`; if you replace it with a real login call, switch the scope
-to `'worker'` so the suite does not authenticate once per test.
+Việc tách đó **cố ý chưa làm**. Với một sản phẩm duy nhất, mọi phán đoán về cái gì là
+"dùng chung" đều chỉ là phỏng đoán; chỉ sản phẩm thứ hai mới trả lời dứt điểm được. Từ
+giờ đến lúc đó, luật ở §2 là thứ giữ cho lựa chọn ấy còn mở, và giữ nó thì chẳng tốn gì.

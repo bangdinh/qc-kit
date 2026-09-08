@@ -1,6 +1,6 @@
-import { expect, type Locator, type Page, type Response } from '@playwright/test';
+import { type Response } from '@playwright/test';
+import { BaseUiObject } from './base.ui-object';
 import { logger } from './logger';
-import { currentTestInfo, step } from './step';
 
 /**
  * Every page object extends this class.
@@ -11,29 +11,14 @@ import { currentTestInfo, step } from './step';
  *  - wrap each of those methods in `this.step(...)` so the report reads as a story
  *  - assertions that belong to the page live here as `expectX()` methods;
  *    test-specific assertions stay in the spec
+ *
+ * Steps, screenshots and the shared locator helpers come from `BaseUiObject`,
+ * which components share — so a click inside a modal reads in the report the
+ * same way a click on the page does.
  */
-export abstract class BasePage {
+export abstract class BasePage extends BaseUiObject {
   /** Path appended to baseURL by `open()`. Override in the subclass. */
   protected readonly path: string = '/';
-
-  constructor(protected readonly page: Page) {}
-
-  /**
-   * Wrap an action in a reporter step, prefixed with the page's name:
-   *
-   *   async login(user: string, pass: string): Promise<void> {
-   *     await this.step(`log in as "${user}"`, async () => {
-   *       await this.username.fill(user);
-   *       await this.password.fill(pass);
-   *       await this.submit.click();
-   *     });
-   *   }
-   *
-   * Renders in the HTML report as `LoginPage: log in as "qa-user"`.
-   */
-  protected step<T>(title: string, body: () => Promise<T>): Promise<T> {
-    return step(`${this.constructor.name}: ${title}`, body);
-  }
 
   /** Navigate to this page's path (relative to baseURL). */
   async open(pathOverride?: string): Promise<Response | null> {
@@ -63,40 +48,8 @@ export abstract class BasePage {
     });
   }
 
-  /**
-   * Full-page screenshot written to this test's own output folder and attached
-   * to the report. Using testInfo.outputPath() keeps parallel workers from
-   * overwriting each other's files when two tests screenshot the same name.
-   */
+  /** Full-page screenshot, written to this test's output folder and attached. */
   async screenshot(name: string): Promise<Buffer> {
-    return this.step(`screenshot "${name}"`, async () => {
-      const info = currentTestInfo();
-      const file = info
-        ? info.outputPath(`${name}.png`)
-        : `test-results/screenshots/${name}.png`;
-
-      const buffer = await this.page.screenshot({ path: file, fullPage: true });
-      await info?.attach(name, { path: file, contentType: 'image/png' });
-      return buffer;
-    });
-  }
-
-  // ---------------------------------------------------------------------
-  // Small shared helpers. Keep this list short: prefer Playwright's built-in
-  // auto-waiting over custom wrappers.
-  // ---------------------------------------------------------------------
-
-  protected async clickWhenReady(locator: Locator): Promise<void> {
-    await expect(locator).toBeEnabled();
-    await locator.click();
-  }
-
-  protected async fillIfPresent(locator: Locator, value?: string): Promise<void> {
-    if (value === undefined) return;
-    await locator.fill(value);
-  }
-
-  protected async isVisible(locator: Locator): Promise<boolean> {
-    return locator.isVisible();
+    return this.capture(name, (file) => this.page.screenshot({ path: file, fullPage: true }));
   }
 }

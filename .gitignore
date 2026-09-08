@@ -16,7 +16,10 @@ node_modules/
 
 # Editors & OS
 .idea/
-.vscode/
+.vscode/*
+# Shared with the team: recommended extension + Playwright plugin defaults.
+!.vscode/extensions.json
+!.vscode/settings.json
 .DS_Store
 Thumbs.db
 

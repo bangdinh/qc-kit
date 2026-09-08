@@ -1,10 +1,11 @@
 import { test as base } from '@playwright/test';
-import { accounts } from '../data/credentials';
+import { accounts, companyCode } from '../data/credentials';
 import { buildUser, buildUsers } from '../data/factories/user.factory';
 
 export interface DataFixtures {
   testData: {
     accounts: typeof accounts;
+    companyCode: typeof companyCode;
     buildUser: typeof buildUser;
     buildUsers: typeof buildUsers;
   };
@@ -12,6 +13,6 @@ export interface DataFixtures {
 
 export const dataFixture = base.extend<DataFixtures>({
   testData: async ({}, use) => {
-    await use({ accounts, buildUser, buildUsers });
+    await use({ accounts, companyCode, buildUser, buildUsers });
   },
 });

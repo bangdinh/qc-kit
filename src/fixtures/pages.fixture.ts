@@ -1,5 +1,6 @@
 import { test as base, type Page } from '@playwright/test';
 import type { BasePage } from '../core/base.page';
+import { LoginPage } from '../pages/LoginPage';
 
 /** Constructor signature every page object satisfies. */
 export type PageObjectClass<T extends BasePage> = new (page: Page) => T;
@@ -13,9 +14,7 @@ export interface PageFixtures {
    */
   createPage: <T extends BasePage>(PageClass: PageObjectClass<T>) => T;
 
-  // Register frequently used pages as their own fixtures, e.g.:
-  // loginPage: LoginPage;
-  // dashboardPage: DashboardPage;
+  loginPage: LoginPage;
 }
 
 export const pagesFixture = base.extend<PageFixtures>({
@@ -23,7 +22,7 @@ export const pagesFixture = base.extend<PageFixtures>({
     await use(<T extends BasePage>(PageClass: PageObjectClass<T>) => new PageClass(page));
   },
 
-  // loginPage: async ({ page }, use) => {
-  //   await use(new LoginPage(page));
-  // },
+  loginPage: async ({ page }, use) => {
+    await use(new LoginPage(page));
+  },
 });

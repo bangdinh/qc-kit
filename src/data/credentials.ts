@@ -13,3 +13,11 @@ export const accounts = {
     return { username: envVar('ADMIN_USERNAME', ''), password: envVar('ADMIN_PASSWORD', '') };
   },
 } as const;
+
+/**
+ * Tenant the login screen asks for before it ever sees a username
+ * ("Mã doanh nghiệp"). The app lower-cases and trims whatever is typed.
+ */
+export function companyCode(): string {
+  return envVar('COMPANY_CODE', '').trim().toLowerCase();
+}

@@ -1,0 +1,18 @@
+{
+  // Keep one browser open between runs from the Test Explorer — a re-run costs
+  // a page load instead of a browser launch. Only affects VS Code, never CI.
+  "playwright.reuseBrowser": false,
+
+  // Open the trace viewer beside the editor when a test is run from the gutter.
+  "playwright.showTrace": false,
+
+  // The setup project caches a session; without this the extension would skip
+  // it on every run but the first, and specs would start signed out once the
+  // cached session expires.
+  "playwright.runGlobalSetupOnEachRun": false,
+
+  // Environment for runs started from the Test Explorer. Left empty on purpose:
+  // the config reads `.env` itself (see src/config/env.ts), so both the CLI and
+  // the extension resolve exactly the same values.
+  "playwright.env": {}
+}
