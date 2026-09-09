@@ -66,3 +66,20 @@ sẽ lan ra mọi dự án kế thừa. Thà chưa có còn hơn có mà sai.
 
 **Trả bằng cách:** khi có một dự án thật cần swipe (nhiều khả năng là mobile), lấy cài
 đặt của dự án đó làm mẫu — sau khi nó chạy đúng trên thiết bị thật.
+
+
+---
+
+## 4. Output của scaffold chưa được typecheck tự động
+
+`make new` sinh ra một dự án, nhưng không có gì kiểm rằng dự án đó **biên dịch được**.
+
+**Đã suýt trả giá:** template `auth/LoginPage.ts.tmpl` từng import `STORAGE_STATE` từ
+`qc-kit/core` trong khi nó nằm ở `qc-kit/config`. Chỉ phát hiện vì lần này có chạy tay
+`npm run typecheck` trên dự án vừa sinh.
+
+**Trả bằng cách:** một job CI sinh cả hai biến thể (trơn, và `AUTH=1 API=1`), cài từ
+tarball `npm pack`, chạy `tsc --noEmit`. Chậm (~1 phút) nhưng đây đúng là loại lỗi mà
+unit test của kit không bao giờ thấy.
+
+**Điều kiện:** làm cùng lúc với dựng CI — hiện repo chưa có CI nào.

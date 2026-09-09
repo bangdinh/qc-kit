@@ -40,7 +40,9 @@ grep -rE "from '\.\./(pages|components|data)" src/core src/config src/contract s
 ## Verify — một phát, không chạy lẻ từng file
 
 ```bash
-npm run verify      # typecheck + project unit: không browser, không credential, không mạng
+make verify         # = npm run verify: typecheck + build + unit test.
+                    # Không browser, không credential, không mạng.
+make new NAME=x     # sinh dự án automation mới; `make` không tham số liệt kê hết lệnh
 ```
 
 Luôn nối sửa → verify bằng `&&`. Test đơn vị chạy bằng **chính Playwright runner** qua

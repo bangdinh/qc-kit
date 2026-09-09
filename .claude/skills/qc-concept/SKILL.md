@@ -68,7 +68,7 @@ format **chưa được viết**. Gặp chỗ cần nó thì hỏi, đừng tự
 | `@qc/bdd` | Preset `playwright-bdd` · enforce tag `@<MODULE>-NN` và `@priority-*` |
 | `@qc/core` | `.env` loader · bảng môi trường · i18n VI/EN · session TTL + ghi atomic · step · logger |
 | `@qc/web` · `@qc/api` | BasePage · BaseComponent · BaseApiClient · fixtures · Authenticator |
-| `@qc/conventions` | Format `data-testid` · thứ tự ưu tiên locator · `npx qc init` |
+| `cmd/scaffold` | Sinh dự án mới: `npx qc-kit new <tên> [--auth] [--api]`, hoặc `make new NAME=…` trong repo kit |
 
 Hôm nay repo mới có tầng runtime Playwright cho web; phần còn lại đang gom vào. Đừng giả định một
 package đã tồn tại — kiểm tra trước.

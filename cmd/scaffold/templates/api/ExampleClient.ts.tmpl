@@ -1,0 +1,17 @@
+import { BaseApiClient } from 'qc-kit/api';
+
+export interface Example {
+  id: string;
+  name: string;
+}
+
+/**
+ * Một tài nguyên API = một client. Retry, auth header, format lỗi và bọc step đã nằm sẵn
+ * ở `BaseApiClient`; client chỉ khai endpoint và kiểu dữ liệu.
+ */
+export class ExampleClient extends BaseApiClient {
+  protected override readonly basePath = '/examples';
+
+  getById = (id: string) => this.json<Example>('get', `/${id}`);
+  create = (payload: Partial<Example>) => this.json<Example>('post', '', { data: payload });
+}
