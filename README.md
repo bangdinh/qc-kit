@@ -1,5 +1,9 @@
 # qc-kit
 
+[![Latest Release](https://img.shields.io/badge/release-v0.2.0-blue)](https://github.com/bangdinh/qc-kit/tags)
+[![Node](https://img.shields.io/badge/node-20+-339933)](package.json)
+[![Playwright](https://img.shields.io/badge/playwright-peer%20optional-2EAD33)](package.json)
+
 Bộ kit QC **dùng chung** cho automation web · mobile · backend — mỗi dự án kế thừa thay
 vì copy khung. Xây trên [Playwright](https://playwright.dev) + TypeScript, mô hình Page
 Object kết hợp custom fixtures.
@@ -92,14 +96,14 @@ chỉ cần đổi số version, không phải copy lại gì.
 Nâng cấp:
 
 ```bash
-npm i "github:bangdinh/qc-kit#v0.3.0"    # đổi tag, cài lại
-npm run typecheck && npx playwright test # nghiệm thu ngay: kit đổi API thì typecheck bắt
+npm i "github:bangdinh/qc-kit#<tag-mới>"  # xem tag: github.com/bangdinh/qc-kit/tags
+npm run typecheck && npx playwright test  # nghiệm thu ngay: kit đổi API thì typecheck bắt
 ```
 
 `scaffold` tự điền dependency này theo **tag mới nhất** của kit lúc sinh dự án, nên dự án
 mới không phải sửa tay.
 
-Publish lên registry rồi thì đổi thành range bình thường (`"qc-kit": "^0.3.0"`) —
+Publish lên registry rồi thì đổi thành range bình thường (`"qc-kit": "^0.2.0"`) —
 `exports`, `files` và `prepare` đã sẵn sàng cho cả hai đường.
 
 > **Pre-1.0**: bump **minor** cho thay đổi phá vỡ, **patch** cho thay đổi tương thích

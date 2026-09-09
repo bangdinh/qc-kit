@@ -76,6 +76,25 @@ open("package.json", "a", encoding="utf-8").write("\n")
 print(f"package.json: version -> {v}")
 PY
 
+# --- bump tham chiếu version trong README về $VERSION (khỏi stale sau mỗi release) ---
+# Nhắm: badge `release-vX.Y.Z`, ví dụ pin `qc-kit#vX.Y.Z`, và range `"qc-kit": "^X.Y.Z"`.
+# KHÔNG đụng ví dụ nâng cấp — nó cố tình dùng placeholder `#<tag-mới>` nên không khớp.
+python3 - "$VERSION" "$BARE" <<'BUMP'
+import sys, re
+v, bare = sys.argv[1], sys.argv[2]
+for path in ("README.md", "cmd/scaffold/templates/README.md.tmpl"):
+    try:
+        s = open(path, encoding="utf-8").read()
+    except FileNotFoundError:
+        continue
+    n = re.sub(r'release-v\d+\.\d+\.\d+', f'release-{v}', s)
+    n = re.sub(r'qc-kit#v\d+\.\d+\.\d+', f'qc-kit#{v}', n)
+    n = re.sub(r'("qc-kit": ")\^\d+\.\d+\.\d+', rf'\g<1>^{bare}', n)
+    if n != s:
+        open(path, "w", encoding="utf-8").write(n)
+        print(f"{path}: bump tham chiếu version -> {v}")
+BUMP
+
 # --- chèn entry vào CHANGELOG, ngay dưới ## [Unreleased] ---
 python3 - "$entry" <<'PY'
 import sys, re
@@ -91,7 +110,7 @@ open("CHANGELOG.md", "w", encoding="utf-8").write(s)
 print("CHANGELOG.md updated")
 PY
 
-git add package.json CHANGELOG.md
+git add package.json CHANGELOG.md README.md cmd/scaffold/templates/README.md.tmpl
 git commit -q -m "chore(release): $VERSION"
 # Annotated tag mang luôn release notes. --cleanup=verbatim để git không strip dòng '##'
 # (nó coi dấu # là comment).
