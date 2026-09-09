@@ -1,4 +1,4 @@
-# Kiến trúc — AutomationPlaywright
+# Kiến trúc — qc-kit
 
 [README.md](README.md) nói về **cách chạy** suite. Tài liệu này nói về **vì sao nó có
 hình dạng như vậy**: các tầng, luật phụ thuộc duy nhất giữ chúng tách nhau, và những

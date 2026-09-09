@@ -8,6 +8,11 @@ description: Jira jira.fcam.vn project RPA cho repo qc-kit - doc issue, tao task
 Project mặc định: **RPA**, board **239** (`RPA Q3 - NewWebFirst-NewCoreFit`). Token gắn với
 **instance**, không phải project — cùng một PAT dùng được cho RPA lẫn B2B.
 
+> **Mới vào dự án?** Đọc `references/du-an-webfirst.md` trước — 5 repo và vai trò từng repo,
+> mô hình story/sub-task/point, nhiều sprint active = nhiều team nhỏ, và **năm chỗ số liệu
+> Jira dễ hiểu sai** (đều đo được, tự phát hiện lại rất mất thời gian).
+
+
 Skill này là bản của `qc-kit`. Nội dung `jira.sh` giống hệt sáu bản còn lại trong Web-First
 (xem mục cuối) — chỉ phần quy ước dưới đây là riêng cho một repo QC.
 
@@ -160,6 +165,10 @@ Kiểm tra lệch:
 ```bash
 md5 -q \
   .claude/skills/jira/jira.sh */.claude/skills/jira/jira.sh | sort -u
+
+# references cũng phải sync, không chỉ jira.sh:
+md5 -q \
+  .claude/skills/jira/references/du-an-webfirst.md */.claude/skills/jira/references/du-an-webfirst.md | sort -u
 ```
 
 Ra **một dòng** là ổn. Ra nhiều dòng thì `diff` rồi chọn bản mới nhất.
