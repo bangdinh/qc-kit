@@ -1,21 +1,23 @@
-import { definePlaywrightConfig } from './src/config/define-config';
-import { config } from './src/config/environments';
+import { defineEnvironments, definePlaywrightConfig } from './src/config';
 
 /**
- * The preset in `src/config/define-config.ts` owns the project layout, the
- * reporters and the timeouts. This file only says which environment to run
- * against — everything product-specific lives in `src/config/environments.ts`.
+ * Config của chính kit — kit không có spec sản phẩm nào, chỉ có unit test của nó.
  *
- * Adding a browser is an `extraProjects` entry, not a fork of the preset:
+ * Bảng môi trường ở đây tồn tại vì `definePlaywrightConfig()` cần một `env`; không test
+ * nào của kit mở browser. Dự án tiêu thụ dùng bảng của họ (xem
+ * `cmd/scaffold/templates/src/env.ts.tmpl`).
  *
- *   extraProjects: [
- *     { name: 'firefox', testDir: './tests', testMatch: '**​/{ui,e2e}/**​/*.spec.ts',
- *       use: { ...devices['Desktop Firefox'], storageState: STORAGE_STATE },
- *       dependencies: ['setup'] },
- *   ]
+ * Nghiệm thu end-to-end của kit không nằm ở đây mà ở `make smoke`: sinh một dự án thật,
+ * cài từ tarball, rồi chạy.
  */
+const env = defineEnvironments({
+  none: {
+    baseURL: 'http://localhost',
+    timeouts: { action: 5_000, navigation: 10_000, expect: 5_000, test: 30_000 },
+  },
+}).resolve();
+
 export default definePlaywrightConfig({
-  env: config,
-  // The kit's own unit tests. Off by default in the preset — see the option's docs.
-  projects: { unit: true },
+  env,
+  projects: { unit: true, web: false, api: false, auth: false },
 });

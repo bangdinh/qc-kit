@@ -12,11 +12,7 @@
     "src/**/*.ts"
   ],
   "exclude": [
-    "src/**/*.test.ts",
-    "src/pages/**",
-    "src/data/**",
-    "src/components/**",
-    "src/config/environments.ts"
+    "src/**/*.test.ts"
   ],
-  "_comment": "Khong sinh sourceMap/declarationMap: goi khong ship src (de tranh loi tri thuc san pham o src/pages, src/data, src/config/environments.ts), nen map se tro vao duong dan khong ton tai — stack trace chi vao cho trong con te hon la khong co map. Consumer doc .d.ts va JSDoc."
+  "_comment": "Khong sinh sourceMap/declarationMap: goi khong ship src nen map se tro vao duong dan khong ton tai — stack trace chi vao cho trong con te hon la khong co map. Consumer doc .d.ts va JSDoc."
 }

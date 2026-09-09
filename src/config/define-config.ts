@@ -78,6 +78,13 @@ export interface PlaywrightPresetOptions {
      * missing session file.
      */
     auth?: boolean;
+    /**
+     * The browser projects (`chromium`, `chromium-guest`). Default: true.
+     *
+     * Off for a suite that never opens a browser — an API-only project, or the kit
+     * itself, which ships no specs of its own and runs only `unit`.
+     */
+    web?: boolean;
     /** API specs, no browser. Default: true. */
     api?: boolean;
     /** Signed-out specs tagged `@guest` — login, registration, errors. Default: true. */
@@ -103,9 +110,10 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
   } = options;
 
   const withUnit = options.projects?.unit ?? false;
+  const withWeb = options.projects?.web ?? true;
   const withAuth = options.projects?.auth ?? true;
 
-  if (withAuth && !hasSetupFile(path.resolve(testDir), setupMatch)) {
+  if (withWeb && withAuth && !hasSetupFile(path.resolve(testDir), setupMatch)) {
     throw new Error(
       `No setup file matching ${setupMatch} under "${testDir}", but the authenticated ` +
         `projects expect a session at "${storageState}". Add one (see the kit's ` +
@@ -153,7 +161,7 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
       : []),
 
     /* 1. Logs in once and stores the session on disk. */
-    ...(withAuth ? [{ name: 'setup', testMatch: setupMatch }] : []),
+    ...(withWeb && withAuth ? [{ name: 'setup', testMatch: setupMatch }] : []),
 
     /* 2. API specs — no browser is launched. */
     ...(withApi
@@ -161,17 +169,21 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
       : []),
 
     /* 3. UI + E2E specs, already signed in. */
-    {
-      name: 'chromium',
-      testDir,
-      testMatch: specMatch,
-      grepInvert: /@guest/,
-      use: withAuth ? { ...browserUse, storageState } : { ...browserUse },
-      ...(withAuth ? { dependencies: ['setup'] } : {}),
-    },
+    ...(withWeb
+      ? [
+          {
+            name: 'chromium',
+            testDir,
+            testMatch: specMatch,
+            grepInvert: /@guest/,
+            use: withAuth ? { ...browserUse, storageState } : { ...browserUse },
+            ...(withAuth ? { dependencies: ['setup'] } : {}),
+          },
+        ]
+      : []),
 
     /* 4. Anything that must start signed out (login, registration, errors). */
-    ...(withGuest
+    ...(withWeb && withGuest
       ? [
           {
             name: 'chromium-guest',

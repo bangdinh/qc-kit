@@ -21,20 +21,21 @@ Concept đầy đủ: [`ONBOARDING.md`](ONBOARDING.md). Quyết định kiến t
    một sản phẩm cụ thể.
 3. **Không chứa tri thức sinh case.** Checklist các nhóm case, cách suy case từ
    requirement — thuộc prompt của agent.
-4. **Phụ thuộc chảy một chiều.** `config` · `contract` · `util` · `types` không bao giờ
-   import `pages` · `components` · `data`.
+4. **Không export sẵn một `test` đã compose.** Kit export *factory*; dự án tự
+   `mergeTests`. Export sẵn là bắt mọi consumer thừa kế sản phẩm của người khác.
 
 ```bash
-# 1 — dò import và dependency, KHÔNG dò chữ trong comment: `validate.ts` nhắc
-# "OpenAI envelope" khi mô tả định dạng upstream, đó không phải vi phạm.
+# 1 — dò import, KHÔNG dò chữ trong comment: `validate.ts` nhắc "OpenAI envelope"
+# khi mô tả định dạng upstream, đó không phải vi phạm.
 grep -rE "from ['\"](@anthropic-ai/|openai|langchain)" src/ && echo "VI PHẠM 1"
 
-# 2 — loại trừ ba file đang mang nợ sản phẩm (docs/TECH_DEBT.md #1). Check này bắt
-# vi phạm MỚI. Dọn xong nợ thì bỏ --exclude đi.
-grep -rniE "fcam\.vn|vmsmart" src/ \
-  --exclude=environments.ts --exclude=LoginPage.ts --exclude=credentials.ts && echo "VI PHẠM 2"
+# 2 và 3 — src/ và cmd/ không được biết một sản phẩm nào. Ví dụ về sản phẩm sống ở
+# cmd/scaffold/templates/ dưới dạng bản mẫu trung tính, không mang tên thật.
+grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/ && echo "VI PHẠM 2/3"
 
-grep -rE "from '\.\./(pages|components|data)" src/core src/config src/contract src/utils src/types && echo "VI PHẠM 4"
+# 4 — kit không được export một `test` đã compose. Dò IMPORT thật, không dò chữ:
+# src/fixtures/index.ts có ví dụ mergeTests trong comment để chỉ consumer cách compose.
+grep -rE "^import .*mergeTests" src/ && echo "VI PHẠM 4"
 ```
 
 ## Verify — một phát, không chạy lẻ từng file
@@ -51,9 +52,10 @@ runner thứ hai, đừng thêm vitest/jest.
 
 ## Nền tảng là source
 
-- **Tìm trước khi viết.** Đã có `contract.*`, `config.*`, `BaseUiObject`, `BasePage`,
-  `BaseComponent`, `BaseApiClient`, `logger`, `step`, `session`. Dựng lại thứ đã có là
-  một defect.
+- **Tìm trước khi viết.** Đã có `contract.*` (validate · translate · toTestId),
+  `config.*` (env · defineEnvironments · definePlaywrightConfig · hasSetupFile),
+  `BaseUiObject`/`BasePage`/`BaseComponent`, `BaseApiClient`, `logger`, `step`, `session`,
+  `scaffold.*` (plan · render). Dựng lại thứ đã có là một defect.
 - **Không bịa.** Helper/signature/hành vi không có trong source và không chắc thì đọc
   code. Thật sự chưa có thì nói chưa có và đề xuất thêm — đừng vờ như nó tồn tại.
 - **Pattern mới cần cơ sở.** Neo vào một spec hoặc thư viện đang được duy trì, trích dẫn
@@ -90,6 +92,20 @@ User hay làm song song, nên: kiểm `git status` trước khi đụng index, v
 Thứ tự làm việc: **sub-task → nhánh → code → cập nhật sub-task → commit → MR →
 transition** (xem skill `jira`).
 
+## Layout
+
+```
+src/config/    env · defineEnvironments · definePlaywrightConfig · paths · find-setup
+src/core/      BasePage · BaseComponent · auth · session · step · logger
+src/contract/  hợp đồng test case: types · validate · translate · testid
+src/api/       BaseApiClient          src/fixtures/  factory fixture
+src/scaffold/  plan · render          src/utils/  src/types/
+cmd/scaffold/  CLI + templates dự án mới
+```
+
+`src/` **không có** `pages`, `components`, `data` — đó là tri thức sản phẩm, sống trong
+dự án tiêu thụ. Bản mẫu của chúng nằm ở `cmd/scaffold/templates/`.
+
 ## Bẫy của repo
 
 - `src/config/define-config.ts` là JSDoc dày: chuỗi có `*/` trong comment sẽ đóng comment
@@ -98,6 +114,10 @@ transition** (xem skill `jira`).
   coi giá trị rỗng là vắng mặt.
 - Session cache ghi atomic (temp + rename). Đừng đổi thành ghi thẳng: worker khác đang
   đọc sẽ trúng file JSON dở.
+- Template của scaffold **không** được typecheck bởi `make verify` — chỉ `make smoke`
+  thấy. Sửa template thì chạy `make smoke` (`docs/TECH_DEBT.md` #4).
+- Project `unit` mặc định **tắt** trong preset: `testDir: './src'` là src của người gọi.
+  Kit tự bật cho mình trong `playwright.config.ts`.
 
 ## Skills (tự áp dụng theo `description`)
 

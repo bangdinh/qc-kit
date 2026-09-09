@@ -1,18 +1,18 @@
 ---
 name: qc-concept
-description: Concept va phan vai cua qc-kit trong he sinh thai QC Web-First (Dify, platform-qc-agent, agent-memory, web-first-automation) - qc-kit so huu cai gi, tuyet doi khong lam gi, va hop dong test case bat no phai co gi. Kich hoat khi bat dau lam viec trong repo qc-kit, khi hoi "qc-kit la gi", khi khong chac mot doan code thuoc repo nao, khi them package/module moi, hoac khi nhac platform-qc-agent, Dify, agent-memory, web-first-automation.
+description: Concept va phan vai cua qc-kit trong he sinh thai QC Web-First (Dify, platform-qc-agent, agent-memory, du an tieu thu) - qc-kit so huu cai gi, tuyet doi khong lam gi, hop dong test case bat no phai co gi, va them code thi di dau. Kich hoat khi bat dau lam viec trong repo qc-kit, khi hoi "qc-kit la gi", khi khong chac mot doan code thuoc repo nao, khi them module/template moi, hoac khi nhac platform-qc-agent, Dify, agent-memory, web-first-automation, scaffold.
 ---
 
 # qc-kit — concept và phân vai
 
-Bản đầy đủ cho người đọc: [`ONBOARDING.md`](../../../ONBOARDING.md). Skill này là phần agent
-phải tuân theo khi viết code trong repo.
+Bản đầy đủ cho người đọc: [`ONBOARDING.md`](../../../ONBOARDING.md). Skill này là phần
+agent phải tuân theo khi viết code trong repo.
 
 ## Một câu
 
-`qc-kit` là **bộ kit QC dùng chung** (web · mobile · backend) để mỗi dự án kế thừa thay vì copy
-khung — mô hình theo `b2b-gokit`. Nó trả lời **"test bằng cách nào"**, không trả lời "test cái gì"
-và không trả lời "cần test những case nào".
+`qc-kit` là **bộ kit QC dùng chung** (web · mobile · backend) để mỗi dự án kế thừa thay vì
+copy khung — mô hình theo `b2b-gokit`. Nó trả lời **"test bằng cách nào"**, không trả lời
+"test cái gì" và không trả lời "cần test những case nào".
 
 ## Năm hệ thống, năm câu hỏi
 
@@ -22,83 +22,97 @@ và không trả lời "cần test những case nào".
 | `platform-qc-agent` (`fli-backend/core`) | Cần test những case nào? |
 | `agent-memory` (Zep, MCP/SSE) | Dự án này đã biết những gì? |
 | **`qc-kit`** ← repo này | **Test bằng cách nào?** |
-| `web-first-automation` (gitlab `tamdt35`) | Sản phẩm này cụ thể ra sao? |
+| Dự án tiêu thụ (`web-first-automation` là **một** trong số đó) | Sản phẩm này cụ thể ra sao? |
 
-## qc-kit TUYỆT ĐỐI không làm
+## Bốn luật — vi phạm nghĩa là code đang nằm sai chỗ
 
-Bốn luật này là ranh giới, không phải gợi ý. Vi phạm một trong bốn nghĩa là code đang nằm sai repo.
-
-1. **Không gọi LLM.** Không `anthropic`, không `claude`, không `openai`. Sinh test case là việc của
-   `platform-qc-agent`.
-2. **Không chứa tri thức sản phẩm.** Không locator thật, không URL, không tài khoản, không tên
-   module của VMSmart. Những thứ đó thuộc `web-first-automation`.
-3. **Không chứa tri thức sinh case.** Checklist các nhóm case, cách suy ra case từ requirement —
-   thuộc prompt của agent.
-4. **Không copy tri thức đã có chủ.** Cần thì tiêu thụ qua package hoặc qua API.
-
-Kiểm được, chạy trước khi merge:
+1. **Không gọi LLM.** Sinh test case là việc của `platform-qc-agent`.
+2. **`src/` không biết một sản phẩm nào.** Không locator thật, URL, tài khoản, tên module.
+   Ví dụ về sản phẩm sống ở `cmd/scaffold/templates/` dưới dạng bản mẫu trung tính.
+3. **Không chứa tri thức sinh case.** Checklist các nhóm case, cách suy case từ
+   requirement — thuộc prompt của agent.
+4. **Không export sẵn một `test` đã compose.** Kit export *factory*; dự án tự `mergeTests`.
 
 ```bash
-grep -rniE "anthropic|openai|\bclaude\b" src/ && echo "VI PHẠM luật 1"
-grep -rniE "fcam\.vn|vmsmart|beta-" src/ && echo "VI PHẠM luật 2"
-grep -rE "from '\.\./(pages|components|data)" src/core src/config src/utils src/types && echo "VI PHẠM luật phụ thuộc"
+grep -rE "from ['\"](@anthropic-ai/|openai|langchain)" src/ && echo "VI PHẠM 1"
+grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/               && echo "VI PHẠM 2/3"
+grep -rE "^import .*mergeTests" src/                        && echo "VI PHẠM 4"
 ```
+
+Cả ba check đều cố tình dò **import/định danh**, không dò chữ trong comment — repo có ví
+dụ hợp lệ nhắc `mergeTests` và `OpenAI envelope` trong doc comment.
+
+## Layout
+
+```
+src/config/    env · defineEnvironments · definePlaywrightConfig · paths · find-setup
+src/core/      BasePage · BaseComponent · auth · session · step · logger
+src/contract/  hợp đồng test case: types · validate · translate · testid
+src/api/       BaseApiClient        src/fixtures/  factory fixture
+src/scaffold/  plan · render        src/utils/  src/types/
+cmd/scaffold/  CLI + templates dự án mới
+```
+
+**Một package** `qc-kit`, subpath export, một version — không tách `@qc/*`.
+Subpath: `config` · `core` · `contract` · `api` · `fixtures` · `utils` · `types` ·
+`scaffold`. `@playwright/test` là peer **optional**.
+
+Chưa có: `report/` (Excel), adapter Gherkin, `mobile/`. Đừng giả định một module đã tồn
+tại — kiểm tra trước.
 
 ## Hợp đồng với platform-qc-agent
 
-Agent trả `TestCaseGenerationResult`. Một step **đã là bước thực thi được**:
-`{no, screen, action, target, description, expected}`.
+Một step **đã là bước thực thi được**: `{no, screen, action, target, description, expected}`.
 
-| Schema có gì | qc-kit phải có gì |
+| Schema có gì | qc-kit làm gì |
 |---|---|
-| `action` enum 8 verb: `tap · input · swipe · scroll · wait · verify · navigate · select` | Bảng dịch sang Playwright — `tap→click`, `input→fill`, `verify→expect`, `navigate→goto`, `select→selectOption`, `wait→waitFor` |
-| `source: requirement \| context \| inferred` + `assumptions[]` | Cổng duyệt: case `inferred` **không được** vào `.feature`, chỉ vào Excel làm hàng đợi review |
-| Endpoint Dify dùng (`/v1/test-suite/generate`) không validate schema | qc-kit **tự validate lại ở cửa vào**, từ chối thẳng thay vì để case hỏng trôi tới lúc chạy |
+| `action` enum 8 verb | `translateAction()` — 6 verb ánh xạ thẳng; `swipe`/`scroll` trả `custom: true` vì Playwright không có lời gọi tương đương |
+| `source` + `assumptions[]` | `assertGrounded()` — case `inferred` là giả định chưa xác nhận |
+| Endpoint Dify dùng không validate | `parseTestCaseResult()` — dung thứ đóng gói, nghiêm với schema |
 
-**Chưa chốt:** `target` của agent là snake_case (`start_live_button`), còn quy ước `data-testid`
-của kit là kebab-case có prefix module (`livestream-start-live-btn`). Hàm chuẩn hoá giữa hai
-format **chưa được viết**. Gặp chỗ cần nó thì hỏi, đừng tự đặt ra một quy tắc mới.
-
-## Package đang hướng tới
-
-| Package | Vai |
-|---|---|
-| `@qc/contract` | JSON Schema test case · dịch step → Playwright · chuẩn hoá `target` → `data-testid` · validate cửa vào |
-| `@qc/testcase` | `.feature` ↔ Excel ↔ OVERVIEW ↔ RUN_HISTORY ↔ failures-latest · cổng duyệt `inferred` |
-| `@qc/bdd` | Preset `playwright-bdd` · enforce tag `@<MODULE>-NN` và `@priority-*` |
-| `@qc/core` | `.env` loader · bảng môi trường · i18n VI/EN · session TTL + ghi atomic · step · logger |
-| `@qc/web` · `@qc/api` | BasePage · BaseComponent · BaseApiClient · fixtures · Authenticator |
-| `cmd/scaffold` | Sinh dự án mới: `npx qc-kit new <tên> [--auth] [--api]`, hoặc `make new NAME=…` trong repo kit |
-
-Hôm nay repo mới có tầng runtime Playwright cho web; phần còn lại đang gom vào. Đừng giả định một
-package đã tồn tại — kiểm tra trước.
+**Chưa chốt:** `target` của agent là snake_case (`start_live_button`), `data-testid` của
+kit là kebab-case có prefix module (`livestream-start-live-btn`). `toTestId()` chuẩn hoá,
+nhưng module prefix là **heuristic** lấy đoạn đầu của `screen` — override được. Gặp chỗ
+nó đoán sai thì truyền `module` tay, đừng đặt ra quy tắc mới.
 
 ## Thêm code thì đi đâu
 
 | Đang thêm… | Đi đâu |
 |---|---|
 | Cách sinh ra một loại case mới | `platform-qc-agent` — **không phải đây** |
-| Locator / URL / tài khoản của một sản phẩm | `web-first-automation` — **không phải đây** |
-| Cách trình bày, xuất báo cáo test case | `@qc/testcase` trong repo này |
-| Một màn hình / mảnh UI / API client làm ví dụ | `src/pages` · `src/components` · `src/api/clients` |
-| Năng lực cắt ngang (dọn dữ liệu, matcher riêng) | `src/core` — phải dùng được cho **mọi** sản phẩm, nếu không thì nó không phải core |
-| Một môi trường mới | một entry trong `src/config/environments.ts` |
+| Locator / URL / tài khoản của một sản phẩm | Dự án tiêu thụ — **không phải đây** |
+| Một page object / component / API client **mẫu** | `cmd/scaffold/templates/` + entry trong `src/scaffold/plan.ts` |
+| Cách trình bày, xuất báo cáo test case | `src/report/` (chưa có) |
+| Năng lực cắt ngang (dọn dữ liệu, matcher riêng) | `src/core/` — phải dùng được cho **mọi** sản phẩm |
+| Một option mới cho preset | `src/config/define-config.ts` + test trong `define-config.test.ts` |
+
+## Verify
+
+```bash
+make verify   # typecheck + build + unit test. Không browser, credential, mạng.
+make smoke    # sinh dự án, cài từ tarball, CHẠY. Cần browser.
+```
+
+**TDD bắt buộc**: viết `*.test.ts` đỏ trước. `make verify` không thấy lỗi trong template
+của scaffold — sửa template thì phải chạy `make smoke`.
 
 ## Rủi ro đang mở — biết để không lặp lại
 
-- **Hai đường tới trí nhớ.** `platform-qc-agent` cắt preamble hội thoại của Zep trước khi nhét vào
-  prompt (`_strip_preamble`, sinh ra từ sự cố thật: model trả về danh sách business rule thay vì
-  JSON). Dify gọi `get_context` thẳng nên không có bảo vệ đó.
-- **Xung đột luật ngôn ngữ.** Prompt agent ép trả lời tiếng Việt; `web-first-automation` cấm tuyệt
-  đối hardcode text UI trong `.feature` vì text đổi theo `LOCALE`.
+- **Hai đường tới trí nhớ.** `platform-qc-agent` cắt preamble hội thoại của Zep trước khi
+  nhét vào prompt (`_strip_preamble`, sinh ra từ sự cố thật: model trả về danh sách
+  business rule thay vì JSON). Dify gọi `get_context` thẳng nên không có bảo vệ đó.
+- **Xung đột luật ngôn ngữ.** Prompt agent ép trả lời tiếng Việt; convention của
+  `web-first-automation` cấm hardcode text UI vì text đổi theo `LOCALE`.
 - **Ba repo, ba team.** Hợp đồng phải là artifact publish được, không phải import.
+- **Kit chưa publish.** Dự án sinh ra hiện phải trỏ vào tarball local.
 
 ## Đọc tiếp
 
 | Cần biết | Đọc |
 |---|---|
 | Concept đầy đủ, vòng chạy, 10 phút đầu | [`ONBOARDING.md`](../../../ONBOARDING.md) |
-| Cách chạy suite, `.env`, project Playwright | [`README.md`](../../../README.md) |
-| Vì sao code có hình dạng đó, 4 điểm nối | [`STRUCTURE.md`](../../../STRUCTURE.md) |
-| Ghi việc lên Jira, bug sản phẩm vs việc của kit | `.claude/skills/jira/SKILL.md` |
-| Xử lý chỗ không chắc chắn | `.claude/skills/research-and-recommend/SKILL.md` |
+| Dựng dự án mới, biến `.env`, project của preset | [`README.md`](../../../README.md) |
+| Vì sao code có hình dạng đó | [`STRUCTURE.md`](../../../STRUCTURE.md) |
+| Hợp đồng test case | [`docs/testcase-standard.md`](../../../docs/testcase-standard.md) |
+| Quyết định kiến trúc + điều kiện đổi ý | [`docs/adr/`](../../../docs/adr/) |
+| Nợ kỹ thuật | [`docs/TECH_DEBT.md`](../../../docs/TECH_DEBT.md) |
