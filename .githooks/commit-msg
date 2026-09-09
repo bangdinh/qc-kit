@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# commit-msg — ép quy ước commit của repo. Nguồn luật: CLAUDE.md mục "Git".
+#
+# Bật: `make hooks` (hoặc `git config core.hooksPath .githooks`). Mỗi clone bật một lần.
+# Hook là hàng rào DUY NHẤT chạy thật trước khi commit tồn tại; tài liệu và skill chỉ là
+# lời nhắc.
+set -u
+
+MSG_FILE="${1:?commit-msg hook cần đường dẫn file message}"
+SUBJECT="$(grep -v '^#' "$MSG_FILE" | awk 'NF' | head -n1)"
+
+# Commit do git tự sinh, hoặc dùng để sửa commit khác — bỏ qua.
+case "$SUBJECT" in
+  "Merge branch"*|"Merge remote-tracking"*|"Merge pull request"*|"Merge tag"*|\
+  "Revert \""*|fixup!*|squash!*|amend!*) exit 0 ;;
+  "chore(release): v"[0-9]*) exit 0 ;;
+esac
+
+TYPES='feat|fix|refactor|test|docs|chore|perf|ci|build|style|revert'
+# Jira key TUỲ CHỌN ở regex: repo mới, chưa đủ dữ liệu để ép. Chốt bắt buộc thì bỏ dấu
+# `?` sau nhóm `([\[]...\] )` — một ký tự, không cần sửa gì khác.
+PATTERN="^([\[][A-Z][A-Z0-9]+-[0-9]+\] )?($TYPES)(\([a-z0-9._/,-]+\))?: ."
+
+fail() {
+  cat >&2 <<EOF
+
+✗ Commit message không đúng quy ước (CLAUDE.md, mục Git).
+
+  Message của bạn:
+    $SUBJECT
+
+  $1
+
+  Đúng dạng:
+    <type>(<scope>): <mô tả tiếng Việt, đọc là biết đã làm gì>
+    [RPA-1234] <type>(<scope>): <mô tả>          ← khi việc có ticket
+
+  type:  $TYPES
+  scope: vùng ảnh hưởng — contract, config, core, fixtures, scaffold, docs…
+         nhiều mảng thì phân cách bằng dấu phẩy: (contract,docs)
+
+  Ví dụ đạt:
+    [RPA-4509] feat(scaffold): sinh dự án mới từ template
+    fix(contract): salvage JSON không lệch khi description chứa dấu ngoặc nhọn
+
+  Commit CHƯA được tạo. KHÔNG dùng --amend (nó nhét thay đổi vào commit TRƯỚC và giữ
+  message cũ) và KHÔNG dùng --no-verify để đi vòng.
+
+EOF
+  exit 1
+}
+
+[ -n "$SUBJECT" ] || fail "Message rỗng."
+
+if ! printf '%s' "$SUBJECT" | grep -qE "$PATTERN"; then
+  case "$SUBJECT" in
+    feature/*|bugfix/*|hotfix/*|refactor/*|chore/*)
+      fail "Đây là TÊN NHÁNH, không phải commit message." ;;
+    *:*) fail "Sai type, hoặc mô tả rỗng." ;;
+    *)   fail "Thiếu dấu hai chấm sau type(scope)." ;;
+  esac
+fi
+
+DESC="$(printf '%s' "$SUBJECT" | sed -E "s/^([\[][A-Z][A-Z0-9]+-[0-9]+\] )?($TYPES)(\([a-z0-9._\/,-]+\))?: //")"
+if printf '%s' "$DESC" | grep -qiE '^(update code|fix bug|fix lỗi|done|wip|test|abc|commit [0-9]+|sửa code|cập nhật code|minor|misc|temp)\.?$'; then
+  fail "Mô tả không nói được đã làm gì: \"$DESC\"."
+fi
+
+# ${#SUBJECT} của bash đếm BYTE — tiếng Việt có dấu 2-3 byte/chữ nên bị phạt oan.
+command -v python3 >/dev/null || {
+  echo "" >&2
+  echo "✗ Hook cần python3 để đếm ký tự nhưng không tìm thấy trên PATH." >&2
+  echo "  Cài python3 rồi commit lại. KHÔNG dùng --no-verify." >&2
+  exit 1
+}
+LEN="$(printf '%s' "$SUBJECT" | python3 -c 'import sys;print(len(sys.stdin.read()))')"
+LEN_DESC="$(printf '%s' "$DESC" | python3 -c 'import sys;print(len(sys.stdin.read()))')"
+
+[ "$LEN_DESC" -ge 10 ] || fail "Mô tả chỉ $LEN_DESC ký tự (cần ≥ 10) — nói rõ đã làm gì."
+
+if [ "$LEN" -gt 100 ]; then
+  fail "Dòng đầu dài $LEN ký tự (trần 100). Dài vậy thường là commit gộp nhiều việc — tách commit, hoặc đẩy chi tiết xuống body."
+elif [ "$LEN" -gt 72 ]; then
+  echo "⚠ Dòng đầu $LEN ký tự (nên ≤ 72). Chi tiết nên xuống body." >&2
+fi
+
+exit 0

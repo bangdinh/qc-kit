@@ -1,0 +1,56 @@
+import { expect } from '@playwright/test';
+import { STORAGE_STATE } from 'qc-kit/config';
+import { BasePage, saveSession, type Authenticator } from 'qc-kit/core';
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+/**
+ * Màn đăng nhập. Thay locator bên dưới bằng locator THẬT lấy từ DOM
+ * (`npm run codegen`) — đừng bịa `data-testid` rồi hy vọng nó tồn tại.
+ *
+ * `signIn()` chỉ lái UI, cố tình KHÔNG tự cache session: với `fullyParallel`, một màn
+ * đăng nhập tự cache nghĩa là mọi spec file đăng nhập lại và tranh nhau một file.
+ */
+export class LoginPage extends BasePage {
+  protected override readonly path = '/login';
+
+  readonly username = this.page.getByTestId('login-username-input');
+  readonly password = this.page.getByTestId('login-password-input');
+  readonly submit = this.page.getByTestId('login-submit-btn');
+
+  override async waitUntilLoaded(): Promise<void> {
+    await expect(this.username).toBeEditable();
+  }
+
+  async signIn(username: string, password: string): Promise<void> {
+    await this.step(`đăng nhập với "${username}"`, async () => {
+      if (!this.page.url().includes('/login')) await this.open();
+      await this.waitUntilLoaded();
+      await this.username.fill(username);
+      await this.password.fill(password);
+      await this.clickWhenReady(this.submit);
+      await this.expectSignedIn();
+    });
+  }
+
+  /** Adapter giữa "một màn hình có form" và hợp đồng mà qc-kit hiểu. */
+  withCredentials({ username, password }: LoginCredentials): Authenticator {
+    return {
+      signIn: () => this.signIn(username, password),
+      saveSession: (file?: string) => this.saveSession(file),
+    };
+  }
+
+  async saveSession(file: string = STORAGE_STATE): Promise<void> {
+    await this.step(`lưu session vào "${file}"`, async () => {
+      await saveSession(this.page.context(), file);
+    });
+  }
+
+  async expectSignedIn(): Promise<void> {
+    await expect(this.page).not.toHaveURL(/\/login/);
+  }
+}

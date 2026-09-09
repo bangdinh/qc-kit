@@ -1,0 +1,8 @@
+import { expect, test } from '../../src/fixtures';
+import { ExampleClient } from '../../src/api/ExampleClient';
+
+test('tạo được bản ghi @api', async ({ createClient }) => {
+  const client = createClient(ExampleClient);
+  const created = await client.create({ name: 'mẫu' });
+  expect(created.id).toBeTruthy();
+});

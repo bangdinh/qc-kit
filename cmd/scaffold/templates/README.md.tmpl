@@ -1,0 +1,35 @@
+# __NAME__
+
+Bộ test automation dựng trên [qc-kit](https://github.com/bangdinh/qc-kit).
+
+## Bắt đầu
+
+```bash
+npm install
+npm run install:browsers
+cp .env.example .env      # điền URL và tài khoản
+npm run typecheck         # không in gì là đạt
+npx playwright test --list
+```
+
+## Chạy
+
+```bash
+npm test                  # tất cả
+npm run test:ui           # UI, đã đăng nhập
+npm run test:headed       # xem browser chạy thật
+npm run report            # HTML report của lần chạy gần nhất
+```
+
+## Cấu trúc
+
+```
+src/env.ts        bảng môi trường — file duy nhất biết một URL
+src/fixtures.ts   cửa vào duy nhất của spec; compose fixture của qc-kit
+src/pages/        một màn hình một class, kế thừa BasePage
+tests/ui/         spec UI
+```
+
+Kit lo cơ chế (session, step vào report, artifact khi fail, base class). Repo này lo
+locator, URL và tài khoản của sản phẩm. Ranh giới đó là thứ giữ cho việc nâng cấp kit
+không phải sửa test.

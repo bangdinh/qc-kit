@@ -12,7 +12,20 @@ fixtures**.
 
 ## Dùng qc-kit trong một dự án khác
 
-Kit publish được và cài được. Một dự án tiêu thụ chỉ cần bốn file:
+**Cách nhanh nhất — để scaffold sinh hộ:**
+
+```bash
+npx qc-kit new kho-hang --auth        # thêm --api nếu có suite API
+cd kho-hang && npm install && npm run install:browsers
+cp .env.example .env                  # điền URL và tài khoản
+npx playwright test
+```
+
+Trong chính repo kit thì dùng `make new NAME=kho-hang OUT=../kho-hang AUTH=1 API=1`.
+
+Không có `--auth` thì dự án sinh ra chạy được **ngay**, không cần tài khoản nào.
+
+**Hoặc dựng tay** — một dự án tiêu thụ chỉ cần bốn file:
 
 ```bash
 npm i qc-kit @playwright/test
