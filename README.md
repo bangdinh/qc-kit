@@ -1,7 +1,14 @@
-# AutomationPlaywright
+# qc-kit
 
-Framework kiểm thử tự động end-to-end xây trên [Playwright](https://playwright.dev) +
-TypeScript, theo mô hình **Page Object Model kết hợp custom fixtures**.
+Bộ kit QC **dùng chung** cho automation web · mobile · backend — mỗi dự án kế thừa thay vì copy
+khung. Hôm nay repo đã có tầng runtime web: framework kiểm thử end-to-end xây trên
+[Playwright](https://playwright.dev) + TypeScript, theo mô hình **Page Object Model kết hợp custom
+fixtures**.
+
+> **Lần đầu vào repo?** Đọc [ONBOARDING.md](ONBOARDING.md) trước — 5 phút, đủ hiểu qc-kit đứng ở
+> đâu giữa `platform-qc-agent`, `web-first-automation` và Dify, cùng luật quyết định code nào
+> thuộc repo nào. README này nói **cách chạy**; [STRUCTURE.md](STRUCTURE.md) nói **vì sao code có
+> hình dạng đó**.
 
 ---
 
@@ -250,7 +257,7 @@ export default definePlaywrightConfig({
 ## 6. Cấu trúc thư mục
 
 ```
-AutomationPlaywright/
+qc-kit/
 ├── playwright.config.ts            # một dòng — gọi preset
 ├── .env                            # cấu hình máy bạn (git-ignored)
 │

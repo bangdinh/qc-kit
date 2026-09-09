@@ -56,6 +56,12 @@ export interface PlaywrightPresetOptions {
   maximized?: boolean;
   /** Turn the optional projects off for a product that has no API or no guest flows. */
   projects?: {
+    /**
+     * Unit tests for the kit's own pure code (any `*.test.ts` under `src`). No browser, no
+     * credentials, no network — this is the project `npm run verify` runs, and the
+     * one a contributor can run on a laptop with nothing configured. Default: true.
+     */
+    unit?: boolean;
     /** API specs, no browser. Default: true. */
     api?: boolean;
     /** Signed-out specs tagged `@guest` — login, registration, errors. Default: true. */
@@ -80,6 +86,7 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
     overrides,
   } = options;
 
+  const withUnit = options.projects?.unit ?? true;
   const withApi = options.projects?.api ?? true;
   const withGuest = options.projects?.guest ?? true;
 
@@ -112,6 +119,13 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
     : devices['Desktop Chrome'];
 
   const projects: Projects = [
+    /* 0. The kit's own unit tests. First on purpose: it is the only project that
+       runs with nothing configured, and the VS Code extension enables the first
+       project by default (see README §5). */
+    ...(withUnit
+      ? [{ name: 'unit', testDir: './src', testMatch: /.*\.test\.ts/ }]
+      : []),
+
     /* 1. Logs in once and stores the session on disk. */
     { name: 'setup', testMatch: setupMatch },
 

@@ -1,0 +1,132 @@
+# Chuẩn test case
+
+Hợp đồng mà **mọi** bên sinh và **mọi** bên tiêu thụ test case phải theo. Nguồn sự thật
+là `src/contract/types.ts`; tài liệu này giải thích *vì sao* từng field tồn tại và luật
+nào không được vi phạm.
+
+Ai đọc: người viết test bằng tay, người sửa prompt của `platform-qc-agent`, người thêm
+một định dạng nguồn mới.
+
+---
+
+## 1. Bốn nguồn, một hợp đồng
+
+```
+.feature (Gherkin)  ─┐
+.spec.ts + qc.case() ─┼──► TestCase[] ──► Excel · OVERVIEW · RUN_HISTORY · failures-latest
+platform-qc-agent    ─┤
+CSV / nhập tay       ─┘
+```
+
+Thêm một nguồn nghĩa là viết một adapter đổ ra `TestCase[]`. **Không** nghĩa là sửa
+pipeline báo cáo — nếu phải sửa, adapter đang làm sai.
+
+## 2. Các field
+
+### `TestStep`
+
+| Field | Bắt buộc | Luật |
+|---|---|---|
+| `no` | có | Số nguyên, bắt đầu từ 1 **trong từng case** |
+| `screen` | có | snake_case, định danh màn hình: `livestream_setup` |
+| `action` | có | Một trong 8 verb dưới đây, không có verb thứ 9 |
+| `target` | có | snake_case, định danh phần tử: `start_live_button` |
+| `description` | có | Tester làm gì |
+| `expected` | có | Kết quả **quan sát được** của riêng bước này |
+
+**Tám verb**, cố tình đóng: một step phải thực thi được, không phải văn xuôi.
+
+| Verb | Playwright | Ghi chú |
+|---|---|---|
+| `tap` | `click` | |
+| `input` | `fill` | |
+| `verify` | `expect` | |
+| `navigate` | `goto` | |
+| `select` | `selectOption` | |
+| `wait` | `waitFor` | |
+| `swipe` | — | **Cần handler riêng.** Playwright không có lời gọi tương đương |
+| `scroll` | — | **Cần handler riêng** |
+
+`translateAction()` trả `{ verb, custom }`. `custom: true` nghĩa là dự án phải tự cài cử
+chỉ. Đây là lựa chọn có chủ ý: bịa một ánh xạ cho `swipe` sẽ trông đúng và sai ở mọi dự
+án kế thừa.
+
+### `TestCase`
+
+| Field | Bắt buộc | Luật |
+|---|---|---|
+| `test_case_id` | có | `TC_<flow_key>_<3 số>` từ generator, hoặc `<MODULE>-<NN><a-z>` viết tay |
+| `title` | có | Một dòng, kèm kết quả nếu có |
+| `preconditions` | mặc định `[]` | Mỗi phần tử một chuỗi không rỗng |
+| `steps` | có | Mảng `TestStep` |
+| `test_data` | mặc định `{}` | Key/value tự do — chính là một dòng `Examples:` |
+| `priority` | có | `High` \| `Medium` \| `Low` |
+| `tags` | mặc định `[]` | `smoke`, `regression`, … |
+| `source` | có | `requirement` \| `context` \| `inferred` |
+
+### `source` — field quan trọng nhất, và hay bị bỏ qua nhất
+
+| Giá trị | Nghĩa |
+|---|---|
+| `requirement` | Luật nghiệp vụ nêu thẳng trong yêu cầu người gọi đưa vào |
+| `context` | Có trong project context truy hồi được |
+| `inferred` | **Không ai nêu** — đây là giả định, chưa được xác nhận |
+
+Case bịa là case **nghe hợp lý nhất** — đọc không phát hiện ra. Bắt khai nguồn biến việc
+đó thành một bộ lọc chạy được: `source === 'inferred'` là hàng đợi review.
+
+**Luật:** case `inferred` **không được** vào bộ chạy thật cho tới khi có người duyệt. Nó
+vào Excel với cột `Source` để tester thấy.
+
+## 3. `assumptions[]`
+
+Mỗi dòng là một sự thật chưa ai nêu mà test case dựa vào. Phải phủ hết case `inferred`.
+
+`assertGrounded()` kiểm điều này — nhưng chỉ **thô**: assumptions là văn bản tự do nên
+chỉ xác minh được là *có* khai, không xác minh được từng case đã được phủ. Đó là giới
+hạn thật của một kiểm tra tự động ở đây; phần còn lại là việc của người duyệt.
+
+Tách khỏi `parseTestCaseResult()` có chủ ý: một suite thiếu assumptions vẫn **đúng hình
+dạng**, chỉ là chưa đáng tin. Người import về để review thì cần nó; người đẩy vào bộ chạy
+thì phải qua cổng này trước.
+
+## 4. Dung thứ đóng gói, nghiêm với schema
+
+`parseTestCaseResult()` nhận cả object đã parse lẫn văn bản thô, và:
+
+- bóc ```` ```json ```` fence;
+- cứu `{…}` ngoài cùng ra khỏi lời dẫn (*"Đây là các test case: {…} Bạn cần thêm gì
+  không?"*) — việc cứu này **hiểu chuỗi**, nên dấu `{` nằm trong một `title` tiếng Việt
+  không làm lệch việc đếm ngoặc;
+- nhưng **không** nới một field nào của schema. Sai field thì từ chối, kèm đường dẫn JSON
+  chính xác: `test_cases[0].steps[2].action`.
+
+Vì sao kit phải validate khi bên sinh đã có schema: endpoint Dify thật sự gọi
+(`POST /v1/test-suite/generate`) streaming và **không** validate; endpoint có validate
+(`/testcases/generate`) bị tắt 503 khi provider là omni. Suite tới tay kit, ở đường phổ
+biến nhất, **chưa từng được ai kiểm**.
+
+## 5. `target` → `data-testid`
+
+`toTestId(screen, target)` đổi snake_case của generator sang format của kit
+`<module>-<field-hoặc-hành-động>-<loại-phần-tử>`:
+
+```
+toTestId('livestream_setup', 'start_live_button')  ->  'livestream-start-live-btn'
+toTestId('login',            'login_submit_button') ->  'login-submit-btn'   (không lặp prefix)
+```
+
+Module lấy từ **đoạn đầu** của `screen` — đây là **heuristic**, và là lý do `module`
+override được. Truyền tay bất cứ khi nào tên màn hình không phải tên module.
+
+Bảng viết tắt chỉ rút gọn vài từ dài hay lặp (`button→btn`, `dialog→modal`,
+`dropdown→select`); thứ không có trong bảng đi qua nguyên vẹn. Nó không phải allow-list.
+
+## 6. Giữ khớp với bên sinh
+
+`src/contract/types.ts` là bản của bên tiêu thụ;
+`platform-qc-agent/platform_qc_agent/schemas.py` (nhánh `development`) là bản của bên
+sinh. Hai bản phải khớp, và **giữ khớp bằng kiểm tra, không bằng trí nhớ**.
+
+Lệch schema biểu hiện ra ở đây là một đống `ContractError` cùng trỏ vào một field — đọc
+đường dẫn trong thông báo lỗi trước khi nghi ngờ dữ liệu.
