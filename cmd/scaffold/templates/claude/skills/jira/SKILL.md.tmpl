@@ -130,12 +130,12 @@ Chưa có token thì script báo `Chưa set FCAM_JIRA_PAT`. User tự tạo PAT 
 Profile → Personal Access Tokens, rồi:
 
 ```bash
-printf 'FCAM_JIRA_PAT=\nFCAM_JIRA_PROJECT=RPA\n' > ~/.jira.env
-chmod 600 ~/.jira.env      # rồi tự điền token vào
+cp .jira.env.example ~/.jira.env
+chmod 600 ~/.jira.env      # rồi tự điền FCAM_JIRA_PAT=
 ```
 
 Token gắn với **instance** nên `~/.jira.env` dùng chung được cho mọi repo — chỉ tạo một
-lần. **Agent không ghi token hộ.**
+lần. Để ở `./.jira.env` cũng được (đã git-ignore). **Agent không ghi token hộ.**
 Kiểm tra: `bash .claude/skills/jira/jira.sh me` phải in ra tên.
 
 ## Không bao giờ

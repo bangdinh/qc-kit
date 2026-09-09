@@ -62,7 +62,13 @@ done
 if grep -rl '__[A-Z][A-Z0-9_]*__' . --exclude-dir=node_modules 2>/dev/null | grep -q .; then
   echo "✗ còn placeholder chưa thay trong file sinh ra"; exit 1
 fi
-echo "  3 skill có mặt, jira.sh chạy được, không còn placeholder"
+[ -f ".jira.env.example" ] || { echo "✗ thiếu .jira.env.example"; exit 1; }
+# Token lọt vào commit là sự cố bảo mật — kiểm bằng chính git, không bằng cách đọc file.
+git init -q . && git add -A -f .gitignore >/dev/null 2>&1
+git check-ignore -q .jira.env || { echo "✗ .gitignore không chặn .jira.env"; exit 1; }
+git check-ignore -q .jira.env.example && { echo "✗ .gitignore chặn nhầm .jira.env.example"; exit 1; }
+rm -rf .git
+echo "  3 skill có mặt, jira.sh chạy được, .jira.env bị chặn, không còn placeholder"
 
 echo "RAC-SMOKE" >> .claude/skills/qc-flow/SKILL.md
 node "$ROOT/cmd/scaffold/index.js" sync >/dev/null

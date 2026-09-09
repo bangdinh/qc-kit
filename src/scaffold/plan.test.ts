@@ -108,6 +108,12 @@ test.describe('managedAssets — thứ `sync` được phép ghi đè', () => {
       '.claude/skills/testcase-standard/SKILL.md',
       '.claude/skills/jira/SKILL.md',
       '.claude/skills/jira/jira.sh',
+      '.jira.env.example',
     ]);
   });
+});
+
+test('.jira.env.example copy nguyên văn — nó là file cấu hình, không phải template', () => {
+  const f = plan(base).find((x) => x.dest === '.jira.env.example');
+  expect(f?.raw).toBe(true);
 });
