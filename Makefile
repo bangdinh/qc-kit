@@ -4,7 +4,7 @@
 # Chạy `make` không tham số để xem danh sách.
 
 .DEFAULT_GOAL := help
-.PHONY: help verify build test typecheck new pack smoke clean hooks
+.PHONY: help verify build test typecheck new pack smoke release verify-tag clean hooks
 
 NAME ?=
 OUT  ?= $(NAME)
@@ -42,6 +42,14 @@ new: build ## Sinh dự án automation mới (cần NAME=)
 
 smoke: ## Nghiệm thu thật: sinh dự án, cài từ tarball, chạy. Cần browser.
 	bash scripts/smoke.sh
+
+release: ## Cắt release: verify + CHANGELOG + bump version + tag (VERSION=vX.Y.Z; DRY=1 xem trước; KHÔNG push)
+	@[ -n "$(VERSION)" ] || { echo 'Dùng: make release VERSION=v0.2.0 [DRY=1]'; exit 1; }
+	@bash scripts/release.sh "$(VERSION)" $(if $(DRY),--dry)
+
+verify-tag: ## Kiểm một tag đã cắt: client cài từ git URL có dùng được không (VERSION=vX.Y.Z)
+	@[ -n "$(VERSION)" ] || { echo 'Dùng: make verify-tag VERSION=v0.2.0'; exit 1; }
+	@bash scripts/verify-tag.sh "$(VERSION)"
 
 pack: build ## Đóng gói tarball để thử cài ở nơi khác
 	npm pack

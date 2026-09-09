@@ -77,6 +77,34 @@ Kit không export sẵn một `test` đã compose vì làm vậy nó phải nêu
 tài khoản và page object của một sản phẩm — và mọi dự án cài về đều thừa kế sản phẩm của
 người khác.
 
+### Pin version, và nâng cấp
+
+Dự án client **pin đúng một version** — mô hình của `b2b-gokit`. Sửa gì ở kit thì client
+chỉ cần đổi số version, không phải copy lại gì.
+
+```jsonc
+// package.json của dự án client — kit CHƯA publish lên registry nên pin theo tag git
+"devDependencies": {
+  "qc-kit": "github:bangdinh/qc-kit#v0.2.0"
+}
+```
+
+Nâng cấp:
+
+```bash
+npm i "github:bangdinh/qc-kit#v0.3.0"    # đổi tag, cài lại
+npm run typecheck && npx playwright test # nghiệm thu ngay: kit đổi API thì typecheck bắt
+```
+
+`scaffold` tự điền dependency này theo **tag mới nhất** của kit lúc sinh dự án, nên dự án
+mới không phải sửa tay.
+
+Publish lên registry rồi thì đổi thành range bình thường (`"qc-kit": "^0.3.0"`) —
+`exports`, `files` và `prepare` đã sẵn sàng cho cả hai đường.
+
+> **Pre-1.0**: bump **minor** cho thay đổi phá vỡ, **patch** cho thay đổi tương thích
+> ngược. Đọc [CHANGELOG.md](CHANGELOG.md) trước khi nâng minor.
+
 ## 2. Kit gồm gì
 
 | Subpath | Dùng để |
@@ -178,6 +206,24 @@ browser, không cần credential, không cần mạng — chạy được trên 
 
 `make smoke` bắt lớp lỗi mà unit test không thấy: template không compile, `exports` map
 sai, preset dựng nhầm đồ thị project. Nó đã bắt được hai lỗi thật.
+
+### Cắt một release
+
+```bash
+make release VERSION=v0.2.0 DRY=1   # xem trước mục CHANGELOG, không đụng gì
+make release VERSION=v0.2.0         # verify → CHANGELOG → bump package.json → commit → tag
+git push origin master --tags
+```
+
+Script tự: chạy `make verify` (phát hành một bản không verify được là đẩy lỗi sang
+client), sinh mục CHANGELOG từ conventional commit trong `prev-tag..HEAD`, bump
+`package.json` cho **khớp tag** (đó là thứ npm phân giải), commit, rồi tạo annotated tag
+**mang luôn release notes**. Nó **không push** — đó là việc của bạn.
+
+Guard: phải ở `master`, cây làm việc sạch, tag chưa tồn tại.
+
+Vì client cài từ **git URL**, hook build phải là `prepare` chứ không phải `prepack` — npm
+chỉ chạy `prepare` khi cài từ git. Đổi nhầm thì client nhận một package không có `dist/`.
 
 ## 6. Cấu trúc
 

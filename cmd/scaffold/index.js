@@ -11,6 +11,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const TEMPLATES = path.join(__dirname, 'templates');
@@ -26,6 +27,42 @@ function loadCore() {
       'Không nạp được dist/scaffold. Trong repo qc-kit thì chạy `npm run build` trước.',
     );
     process.exit(1);
+  }
+}
+
+/**
+ * Dependency spec mà dự án sinh ra dùng để cài kit.
+ *
+ * Chạy TỪ TRONG repo kit thì pin theo tag git — kit chưa publish lên registry, và đây
+ * đúng là mô hình go-kit: client pin một tag, nâng cấp bằng cách đổi tag.
+ * Chạy từ package đã cài thì trả về range `^x.y.z` (trường hợp đã có registry).
+ */
+function kitSpec(version) {
+  try {
+    // `git -C <path>` đi ngược lên cây thư mục, nên phải xác nhận ROOT CHÍNH LÀ gốc repo
+    // — nếu không, chạy từ node_modules sẽ bắt trúng repo của chính consumer.
+    const top = execSync(`git -C "${ROOT}" rev-parse --show-toplevel`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim();
+    if (path.resolve(top) !== path.resolve(ROOT)) throw new Error('không phải repo kit');
+
+    const url = execSync(`git -C "${ROOT}" remote get-url origin`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim();
+
+    let tag = `v${version}`;
+    try {
+      tag = execSync(`git -C "${ROOT}" describe --tags --abbrev=0`, {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString().trim() || tag;
+    } catch { /* chưa có tag nào — dùng version hiện tại */ }
+
+    const repo = url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
+    if (repo && url.includes('github.com')) return { spec: `github:${repo[1]}#${tag}`, tag };
+    const ssh = url.replace(/^git@([^:]+):/, 'ssh://git@$1/');
+    return { spec: `git+${ssh}#${tag}`, tag };
+  } catch {
+    return { spec: `^${version}`, tag: null };
   }
 }
 
@@ -66,7 +103,7 @@ Ví dụ:
 `);
 }
 
-function variables(opts, kitVersion, pwRange) {
+function variables(opts, kitSpecValue, pwRange) {
   const authImports = opts.auth
     ? "import { createAuthFixture } from 'qc-kit/core';\n" +
       "import { standardUser } from './data/authenticators';\n"
@@ -83,7 +120,7 @@ function variables(opts, kitVersion, pwRange) {
 
   return {
     NAME: opts.name,
-    QC_KIT_VERSION: `^${kitVersion}`,
+    QC_KIT_VERSION: kitSpecValue,
     PW_RANGE: pwRange,
     AUTH: String(opts.auth),
     API: String(opts.api),
@@ -113,12 +150,25 @@ function main() {
   }
 
   const dest = path.resolve(opts.out);
+
+  // Sinh vào TRONG repo kit là cái bẫy của `--out` mặc định (= tên dự án, tức thư mục
+  // hiện tại). Dự án con nằm trong repo kit sẽ bị `git add` nuốt vào kit.
+  if (dest === ROOT || dest.startsWith(ROOT + path.sep)) {
+    console.error(
+      `Không sinh dự án vào trong repo qc-kit ("${dest}").\n` +
+        `Dự án tiêu thụ phải nằm ngoài kit — nếu không nó sẽ bị commit vào kit.\n` +
+        `  Dùng: --out ../${opts.name}   (hoặc make new NAME=${opts.name} OUT=../${opts.name})`,
+    );
+    process.exit(1);
+  }
+
   if (fs.existsSync(dest) && fs.readdirSync(dest).length > 0) {
     console.error(`Thư mục "${dest}" đã có nội dung. Chọn --out khác, hoặc dọn nó trước.`);
     process.exit(1);
   }
 
-  const vars = variables(opts, kitPkg.version, pwRange);
+  const kit = kitSpec(kitPkg.version);
+  const vars = variables(opts, kit.spec, pwRange);
 
   for (const file of files) {
     const source = path.join(TEMPLATES, `${file.template}.tmpl`);
@@ -133,6 +183,7 @@ function main() {
 
   console.log(`
 ✓ Đã sinh ${files.length} file vào ${dest}
+  qc-kit: ${vars.QC_KIT_VERSION}
 
   cd ${opts.out}
   npm install

@@ -81,6 +81,10 @@ runner thứ hai, đừng thêm vitest/jest.
   xuất hiện trong code đã commit.
 - **Secret**: chỉ trong `.env` / `.jira.env` / secret CI. Không bao giờ commit.
 - **Đổi public API thì đổi docs**, và thêm ADR cho quyết định khó lùi.
+- **Phát hành**: `make release VERSION=vX.Y.Z` (verify → CHANGELOG → bump → tag, KHÔNG
+  push). Pre-1.0: minor cho breaking, patch cho tương thích. `package.json` phải khớp tag.
+  Hook build là `prepare`, **không** phải `prepack` — client cài từ git URL, npm chỉ chạy
+  `prepare` ở đường đó.
 
 ## Git — đề xuất, đừng tự chạy
 
