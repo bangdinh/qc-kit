@@ -81,6 +81,9 @@ runner thứ hai, đừng thêm vitest/jest.
   xuất hiện trong code đã commit.
 - **Secret**: chỉ trong `.env` / `.jira.env` / secret CI. Không bao giờ commit.
 - **Đổi public API thì đổi docs**, và thêm ADR cho quyết định khó lùi.
+- **Skill của dự án** sống ở `cmd/scaffold/templates/claude/skills/`. Sửa một skill là
+  đổi asset dùng chung: consumer nhận nó bằng `npm i <tag mới> && npx qc-kit sync`. Thêm
+  file vào tập đó thì cập nhật `MANAGED` trong `src/scaffold/plan.ts` **và** test của nó.
 - **Phát hành**: `make release VERSION=vX.Y.Z` (verify → CHANGELOG → bump → tag, KHÔNG
   push). Pre-1.0: minor cho breaking, patch cho tương thích. `package.json` phải khớp tag.
   Hook build là `prepare`, **không** phải `prepack` — client cài từ git URL, npm chỉ chạy
@@ -104,7 +107,7 @@ src/core/      BasePage · BaseComponent · auth · session · step · logger
 src/contract/  hợp đồng test case: types · validate · translate · testid
 src/api/       BaseApiClient          src/fixtures/  factory fixture
 src/scaffold/  plan · render          src/utils/  src/types/
-cmd/scaffold/  CLI + templates dự án mới
+cmd/scaffold/  CLI + templates dự án mới, gồm cả .claude/skills nạp vào dự án
 ```
 
 `src/` **không có** `pages`, `components`, `data` — đó là tri thức sản phẩm, sống trong

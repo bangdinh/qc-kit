@@ -54,6 +54,21 @@ npm install --silent >/dev/null 2>&1
 npm run typecheck --silent
 echo "  typecheck OK"
 
+# --- skill nạp vào dự án, và `sync` refresh được chúng ---
+for sk in qc-flow testcase-standard jira; do
+  [ -f ".claude/skills/$sk/SKILL.md" ] || { echo "✗ thiếu skill $sk"; exit 1; }
+done
+[ -x ".claude/skills/jira/jira.sh" ] || { echo "✗ jira.sh không có quyền chạy"; exit 1; }
+if grep -rl '__[A-Z][A-Z0-9_]*__' . --exclude-dir=node_modules 2>/dev/null | grep -q .; then
+  echo "✗ còn placeholder chưa thay trong file sinh ra"; exit 1
+fi
+echo "  3 skill có mặt, jira.sh chạy được, không còn placeholder"
+
+echo "RAC-SMOKE" >> .claude/skills/qc-flow/SKILL.md
+node "$ROOT/cmd/scaffold/index.js" sync >/dev/null
+grep -q "RAC-SMOKE" .claude/skills/qc-flow/SKILL.md && { echo "✗ sync không ghi đè lại skill"; exit 1; }
+echo "  sync ghi đè lại skill đã bị sửa"
+
 mkdir -p app
 cat > app/index.html <<'HTML'
 <!doctype html><meta charset="utf-8"><title>smoke</title>

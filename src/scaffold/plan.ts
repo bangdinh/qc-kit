@@ -12,6 +12,11 @@ export interface PlannedFile {
   template: string;
   /** Path inside the generated project. */
   dest: string;
+  /**
+   * Copy byte-for-byte instead of rendering. For files that are not templates —
+   * a shell script whose `${VAR}` and `__X__` are its own, not the generator's.
+   */
+  raw?: boolean;
 }
 
 /** npm package names: lowercase, digits, dashes; must start with a letter. */
@@ -26,8 +31,33 @@ export function assertProjectName(name: string): void {
   }
 }
 
+/**
+ * Asset dùng chung — nguồn chân lý ở kit, dự án nhận bản sao và **không sửa tại chỗ**.
+ *
+ * `qc-kit sync` ghi đè đúng tập này khi nâng version kit. Đó là cách thay cho việc copy
+ * tay N bản `jira.sh` giữa các repo: sửa ở kit, cắt tag, mỗi dự án `sync` một phát.
+ *
+ * Cố tình KHÔNG gồm thứ dự án sở hữu (`package.json`, `src/`, `tests/`, `README.md`,
+ * `CLAUDE.md`) — ghi đè chúng là xoá công của người dùng.
+ */
+const MANAGED: PlannedFile[] = [
+  { template: 'claude/skills/qc-flow/SKILL.md', dest: '.claude/skills/qc-flow/SKILL.md' },
+  {
+    template: 'claude/skills/testcase-standard/SKILL.md',
+    dest: '.claude/skills/testcase-standard/SKILL.md',
+  },
+  { template: 'claude/skills/jira/SKILL.md', dest: '.claude/skills/jira/SKILL.md' },
+  { template: 'claude/skills/jira/jira.sh', dest: '.claude/skills/jira/jira.sh', raw: true },
+];
+
+/** Tập file mà `qc-kit sync` được phép ghi đè trong một dự án đã tồn tại. */
+export function managedAssets(): PlannedFile[] {
+  return MANAGED.map((f) => ({ ...f }));
+}
+
 const ALWAYS: PlannedFile[] = [
   { template: 'package.json', dest: 'package.json' },
+  { template: 'CLAUDE.md', dest: 'CLAUDE.md' },
   { template: 'tsconfig.json', dest: 'tsconfig.json' },
   { template: 'playwright.config.ts', dest: 'playwright.config.ts' },
   { template: 'env.example', dest: '.env.example' },
@@ -56,6 +86,7 @@ export function plan(options: ScaffoldOptions): PlannedFile[] {
   assertProjectName(options.name);
   return [
     ...ALWAYS,
+    ...MANAGED,
     ...(options.auth ? WITH_AUTH : []),
     ...(options.api ? WITH_API : []),
   ];
