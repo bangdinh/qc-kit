@@ -1,7 +1,7 @@
 {
-  "name": "automationplaywright",
+  "name": "qc-kit",
   "version": "1.0.0",
-  "description": "Playwright end-to-end automation framework (Page Object Model + fixtures)",
+  "description": "Bo kit QC dung chung — automation web/mobile/backend, moi du an ke thua thay vi copy khung",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -18,9 +18,16 @@
     "trace": "playwright show-trace",
     "codegen": "playwright codegen",
     "typecheck": "tsc --noEmit",
-    "install:browsers": "playwright install --with-deps"
+    "install:browsers": "playwright install --with-deps",
+    "test:unit": "playwright test --project=unit",
+    "verify": "npm run typecheck && npm run test:unit"
   },
-  "keywords": ["playwright", "automation", "e2e", "testing"],
+  "keywords": [
+    "playwright",
+    "automation",
+    "e2e",
+    "testing"
+  ],
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.63.0",
