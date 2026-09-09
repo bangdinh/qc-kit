@@ -1,0 +1,43 @@
+import type { APIResponse } from '@playwright/test';
+import { BaseApiClient } from 'qc-kit/api';
+import type { CreateExample, Example, Page } from '../models';
+
+/**
+ * Một tài nguyên API = một client (Service Object Model: mỗi service một class, method
+ * đặt tên theo việc nghiệp vụ nó làm, không theo động từ HTTP).
+ *
+ * `BaseApiClient` đã lo retry, auth header, bọc step cho report, và format lỗi kèm status
+ * + body khi response không 2xx. Client chỉ khai endpoint và kiểu dữ liệu.
+ *
+ * Hai kiểu method, dùng cho hai mục đích khác nhau:
+ *  - `json<T>()` — ném lỗi nếu không 2xx, trả thẳng body đã parse. Dùng cho đường hạnh
+ *    phúc: spec không phải kiểm status ở mọi bước, và khi hỏng thì thông báo đã đủ để
+ *    debug.
+ *  - `send(..., { expectOk: false })` — trả `APIResponse` thô, không ném. Dùng cho test
+ *    âm, vì ở đó 4xx CHÍNH LÀ kết quả mong đợi.
+ */
+export class ExampleClient extends BaseApiClient {
+  protected override readonly basePath = '/examples';
+
+  list = (params?: { page?: number; size?: number }) =>
+    this.json<Page<Example>>('get', '', { params });
+
+  getById = (id: string) => this.json<Example>('get', `/${id}`);
+
+  create = (payload: CreateExample) => this.json<Example>('post', '', { data: payload });
+
+  update = (id: string, payload: Partial<CreateExample>) =>
+    this.json<Example>('patch', `/${id}`, { data: payload });
+
+  /** Trả `APIResponse` để spec dọn dẹp còn kiểm được status nếu muốn. */
+  remove = (id: string): Promise<APIResponse> => this.send('delete', `/${id}`);
+
+  /**
+   * Tạo mà KHÔNG ném khi lỗi — dành riêng cho test âm.
+   *
+   * `unknown` chứ không phải `CreateExample`: test âm cần gửi được payload sai kiểu,
+   * thiếu trường, thừa trường. Ép kiểu ở đây thì không viết được test âm nào.
+   */
+  createRaw = (payload: unknown): Promise<APIResponse> =>
+    this.send('post', '', { data: payload, expectOk: false });
+}

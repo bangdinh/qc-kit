@@ -1,0 +1,32 @@
+/**
+ * Kiểu request/response của một tài nguyên.
+ *
+ * Tách khỏi client vì spec thường cần kiểu mà không cần client: một factory dựng payload,
+ * một hàm assert đọc response. Đây cũng là chỗ duy nhất phải sửa khi API đổi hợp đồng —
+ * `tsc` sẽ chỉ ra mọi chỗ vỡ theo.
+ *
+ * Sửa cho khớp API thật; đây chỉ là hình dạng mẫu.
+ */
+
+/** Bản ghi API trả về. */
+export interface Example {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+/**
+ * Payload lúc tạo — CỐ Ý khác `Example`.
+ *
+ * Server sinh `id` và `createdAt`, client không được gửi lên. Dùng chung một kiểu cho cả
+ * hai chiều là cách bỏ lọt lỗi "gửi thừa trường" mà API im lặng bỏ qua.
+ */
+export interface CreateExample {
+  name: string;
+}
+
+/** Response phân trang. Đổi tên trường cho khớp API thật (`items`/`data`/`content`…). */
+export interface Page<T> {
+  items: T[];
+  total: number;
+}

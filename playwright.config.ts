@@ -10,12 +10,18 @@ import { defineEnvironments, definePlaywrightConfig } from './src/config';
  * Nghiệm thu end-to-end của kit không nằm ở đây mà ở `make smoke`: sinh một dự án thật,
  * cài từ tarball, rồi chạy.
  */
-const env = defineEnvironments({
-  none: {
-    baseURL: 'http://localhost',
-    timeouts: { action: 5_000, navigation: 10_000, expect: 5_000, test: 30_000 },
+const env = defineEnvironments(
+  {
+    none: {
+      baseURL: 'http://localhost',
+      timeouts: { action: 5_000, navigation: 10_000, expect: 5_000, test: 30_000 },
+    },
   },
-}).resolve();
+  // Cố ý KHÔNG đọc `TEST_ENV`: máy dev nào cũng có dự án tiêu thụ bên cạnh, và một
+  // `.env` còn sót `TEST_ENV=beta` sẽ làm `make verify` của kit chết với "Unknown
+  // TEST_ENV". Bảng này chỉ có một entry giả, không ai cần đổi nó.
+  { variable: 'QC_KIT_ENV', fallback: 'none' },
+).resolve();
 
 export default definePlaywrightConfig({
   env,

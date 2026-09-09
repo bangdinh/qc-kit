@@ -11,6 +11,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const TEMPLATES = path.join(__dirname, 'templates');
@@ -33,11 +34,12 @@ function parseArgs(argv) {
   const [command, ...rest] = argv;
   if (command !== 'new') return null;
 
-  const opts = { name: '', out: '', auth: false, api: false };
+  const opts = { name: '', out: '', auth: false, api: false, local: false };
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i];
     if (arg === '--auth') opts.auth = true;
     else if (arg === '--api') opts.api = true;
+    else if (arg === '--local') opts.local = true;
     else if (arg === '--out') opts.out = rest[++i] ?? '';
     else if (arg.startsWith('--')) {
       console.error(`Tham số lạ: ${arg}`);
@@ -53,20 +55,39 @@ function usage() {
   console.log(`
 qc-kit — sinh dự án automation mới
 
-  npx qc-kit new <ten-du-an> [--out <thu-muc>] [--auth] [--api]
+  npx qc-kit new <ten-du-an> [--out <thu-muc>] [--auth] [--api] [--local]
 
   <ten-du-an>   kebab-case; trở thành tên package npm
   --out         thư mục đích (mặc định: chính tên dự án)
   --auth        sinh luồng đăng nhập: setup project, credentials, LoginPage
   --api         sinh client API và spec API mẫu
+  --local       đóng gói kit này thành tarball và khai "file:" trỏ vào đó.
+                Bắt buộc khi kit CHƯA publish, nếu không npm install trả 404.
 
 Ví dụ:
-  npx qc-kit new kho-hang --auth
-  npx qc-kit new bo-test-api --out ../bo-test-api --api
+  npx qc-kit new kho-hang --auth --local
+  npx qc-kit new bo-test-api --out ../bo-test-api --api --local
 `);
 }
 
-function variables(opts, kitVersion, pwRange) {
+/**
+ * Đóng gói kit thành tarball và trả về đường dẫn.
+ *
+ * Phải là tarball chứ KHÔNG phải `file:` trỏ vào thư mục kit: npm symlink cả thư mục,
+ * kéo theo `node_modules` của kit, và dự án nạp `@playwright/test` hai lần —
+ * "Requiring @playwright/test second time", không test nào chạy được.
+ */
+function packKit(root) {
+  // execSync với một chuỗi lệnh: `npm` trên Windows là npm.cmd nên cần shell, mà
+  // execFileSync + shell:true thì Node cảnh báo DEP0190. Không có tham số nào từ người
+  // dùng ghép vào chuỗi này.
+  const out = execSync('npm pack --silent', { cwd: root, encoding: 'utf-8' });
+  const file = out.trim().split(/\r?\n/).filter(Boolean).pop();
+  if (!file) throw new Error('npm pack không in ra tên tarball.');
+  return path.join(root, file);
+}
+
+function variables(opts, dependency, pwRange) {
   const authImports = opts.auth
     ? "import { createAuthFixture } from 'qc-kit/core';\n" +
       "import { standardUser } from './data/authenticators';\n"
@@ -83,7 +104,7 @@ function variables(opts, kitVersion, pwRange) {
 
   return {
     NAME: opts.name,
-    QC_KIT_VERSION: `^${kitVersion}`,
+    QC_KIT_VERSION: dependency,
     PW_RANGE: pwRange,
     AUTH: String(opts.auth),
     API: String(opts.api),
@@ -118,7 +139,19 @@ function main() {
     process.exit(1);
   }
 
-  const vars = variables(opts, kitPkg.version, pwRange);
+  // Chưa publish thì `^0.1.0` không phân giải được và npm trả 404 — `--local` đóng gói
+  // kit tại chỗ. Bỏ nhánh này đi khi kit đã lên registry.
+  let dependency = `^${kitPkg.version}`;
+  if (opts.local) {
+    try {
+      dependency = `file:${packKit(ROOT).replace(/\\/g, '/')}`;
+    } catch (e) {
+      console.error(`Không đóng gói được kit: ${e.message}`);
+      process.exit(1);
+    }
+  }
+
+  const vars = variables(opts, dependency, pwRange);
 
   for (const file of files) {
     const source = path.join(TEMPLATES, `${file.template}.tmpl`);
@@ -140,7 +173,13 @@ function main() {
   cp .env.example .env        # điền URL${opts.auth ? ' và tài khoản' : ''}
   npm run typecheck
   npx playwright test
-${opts.auth ? '\nThay locator trong src/pages/LoginPage.ts bằng locator THẬT lấy từ DOM (npm run codegen).\n' : ''}`);
+${
+  opts.local
+    ? `\nqc-kit lấy từ tarball đã đóng gói. Sửa kit rồi thì đóng lại và cài lại:\n` +
+      `  cd ${ROOT} && npm pack && cd - && npm install\n`
+    : '\nqc-kit CHƯA publish lên registry: npm install sẽ trả 404.\n' +
+      'Sinh lại kèm --local (make new … LOCAL=1) để lấy kit từ tarball tại chỗ.\n'
+}${opts.auth ? '\nThay locator trong src/pages/LoginPage.ts bằng locator THẬT lấy từ DOM (npm run codegen).\n' : ''}`);
 }
 
 main();

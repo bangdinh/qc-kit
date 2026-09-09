@@ -1,0 +1,45 @@
+import type { APIResponse } from '@playwright/test';
+import type { Example, Page } from '../models';
+
+/**
+ * Đọc response thô thành object dùng được.
+ *
+ * Đường hạnh phúc thì `ExampleClient` đã trả sẵn object rồi, nên helper này tồn tại chủ
+ * yếu cho **đường lỗi**: `createRaw()` trả `APIResponse` chưa parse, và test âm cần đọc
+ * được message lỗi để khẳng định API từ chối ĐÚNG LÝ DO, không phải tình cờ 400 vì một
+ * chuyện khác.
+ *
+ * `errorMessage()` cố tình chịu đựng nhiều hình dạng body: mỗi backend đặt tên trường lỗi
+ * một kiểu, và một test âm không nên đỏ chỉ vì server trả `detail` thay vì `message`.
+ * Sửa lại cho khớp API thật rồi bỏ bớt nhánh đi.
+ */
+export class ExampleResponseHelper {
+  static async toExample(response: APIResponse): Promise<Example> {
+    return (await response.json()) as Example;
+  }
+
+  static async toPage(response: APIResponse): Promise<Page<Example>> {
+    return (await response.json()) as Page<Example>;
+  }
+
+  /** Id của mọi bản ghi trong một trang — để assert "có mặt trong danh sách". */
+  static idsOf(page: Page<Example>): string[] {
+    return page.items.map((item) => item.id);
+  }
+
+  /**
+   * Message lỗi, hoặc chuỗi rỗng nếu body không phải JSON.
+   *
+   * Không được ném: nó hay được gọi trong lúc một assert khác đang fail, và một exception
+   * ở đây sẽ che mất nguyên nhân thật.
+   */
+  static async errorMessage(response: APIResponse): Promise<string> {
+    try {
+      const body = (await response.json()) as Record<string, unknown>;
+      const raw = body.message ?? body.error ?? body.detail ?? body.title;
+      return typeof raw === 'string' ? raw : JSON.stringify(body);
+    } catch {
+      return (await response.text().catch(() => '')) || '';
+    }
+  }
+}
