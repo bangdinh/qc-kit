@@ -82,6 +82,8 @@ nó đoán sai thì truyền `module` tay, đừng đặt ra quy tắc mới.
 | Cách sinh ra một loại case mới | `platform-qc-agent` — **không phải đây** |
 | Locator / URL / tài khoản của một sản phẩm | Dự án tiêu thụ — **không phải đây** |
 | Một page object / component / API client **mẫu** | `cmd/scaffold/templates/` + entry trong `src/scaffold/plan.ts` |
+| Một skill cho **dự án tiêu thụ** | `cmd/scaffold/templates/claude/skills/` + `MANAGED` trong `plan.ts` |
+| Một skill cho **chính kit** | `.claude/skills/` của repo này — không ship cho ai |
 | Cách trình bày, xuất báo cáo test case | `src/report/` (chưa có) |
 | Năng lực cắt ngang (dọn dữ liệu, matcher riêng) | `src/core/` — phải dùng được cho **mọi** sản phẩm |
 | Một option mới cho preset | `src/config/define-config.ts` + test trong `define-config.test.ts` |

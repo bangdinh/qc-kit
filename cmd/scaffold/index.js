@@ -91,15 +91,20 @@ function usage() {
 qc-kit — sinh dự án automation mới
 
   npx qc-kit new <ten-du-an> [--out <thu-muc>] [--auth] [--api]
+  npx qc-kit sync [thu-muc]
 
   <ten-du-an>   kebab-case; trở thành tên package npm
   --out         thư mục đích (mặc định: chính tên dự án)
   --auth        sinh luồng đăng nhập: setup project, credentials, LoginPage
   --api         sinh client API và spec API mẫu
 
+  sync          ghi đè asset dùng chung (.claude/skills) theo bản kit đang cài.
+                Chạy sau mỗi lần nâng version kit. Không đụng code của dự án.
+
 Ví dụ:
   npx qc-kit new kho-hang --auth
   npx qc-kit new bo-test-api --out ../bo-test-api --api
+  npx qc-kit sync
 `);
 }
 
@@ -130,8 +135,65 @@ function variables(opts, kitSpecValue, pwRange) {
   };
 }
 
+/**
+ * Ghi một file template ra đích.
+ *
+ * `raw` copy nguyên văn: một shell script có `${VAR}` và cú pháp của riêng nó, cho qua
+ * render là hỏng — và nó cũng không có gì để thay.
+ */
+function writeOne(core, file, dest, vars) {
+  const source = path.join(TEMPLATES, `${file.template}.tmpl`);
+  if (!fs.existsSync(source)) {
+    console.error(`Thiếu template: ${source}`);
+    process.exit(1);
+  }
+  const out = path.join(dest, file.dest);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+
+  if (file.raw) {
+    fs.copyFileSync(source, out);
+    if (out.endsWith('.sh')) fs.chmodSync(out, 0o755);
+    return;
+  }
+  fs.writeFileSync(out, core.render.render(fs.readFileSync(source, 'utf-8'), vars));
+}
+
+/**
+ * `qc-kit sync [dir]` — ghi đè asset dùng chung trong một dự án ĐÃ TỒN TẠI, lấy từ bản
+ * kit đang cài. Nâng version kit rồi chạy lệnh này là có skill mới.
+ *
+ * Cố tình không đụng `src/`, `tests/`, `package.json`, `README.md`, `CLAUDE.md` — đó là
+ * thứ dự án sở hữu.
+ */
+function runSync(argv) {
+  const core = loadCore();
+  const dest = path.resolve(argv[0] || '.');
+
+  const pkgPath = path.join(dest, 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    console.error(`Không thấy package.json ở "${dest}" — đây có phải thư mục dự án không?`);
+    process.exit(1);
+  }
+  const name = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')).name || 'du-an';
+  const kitPkg = require(path.join(ROOT, 'package.json'));
+  const vars = { NAME: name };
+
+  const assets = core.plan.managedAssets();
+  console.log(`Đồng bộ asset dùng chung từ qc-kit ${kitPkg.version} → ${dest}`);
+  for (const file of assets) {
+    writeOne(core, file, dest, vars);
+    console.log(`  synced  ${file.dest}`);
+  }
+  console.log(
+    '\nXong. KHÔNG đụng src/, tests/, package.json, README.md, CLAUDE.md — thứ dự án sở hữu.',
+  );
+}
+
 function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'sync') return runSync(argv.slice(1));
+
+  const opts = parseArgs(argv);
   if (!opts) {
     usage();
     process.exit(process.argv.length > 2 ? 1 : 0);
@@ -170,16 +232,7 @@ function main() {
   const kit = kitSpec(kitPkg.version);
   const vars = variables(opts, kit.spec, pwRange);
 
-  for (const file of files) {
-    const source = path.join(TEMPLATES, `${file.template}.tmpl`);
-    if (!fs.existsSync(source)) {
-      console.error(`Thiếu template: ${source}`);
-      process.exit(1);
-    }
-    const out = path.join(dest, file.dest);
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, core.render.render(fs.readFileSync(source, 'utf-8'), vars));
-  }
+  for (const file of files) writeOne(core, file, dest, vars);
 
   console.log(`
 ✓ Đã sinh ${files.length} file vào ${dest}

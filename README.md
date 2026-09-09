@@ -39,8 +39,17 @@ Không có `--auth` thì dự án sinh ra **chạy được ngay**, không cần
 
 Sinh ra: `package.json`, `tsconfig.json`, `playwright.config.ts` (một lời gọi preset),
 `.env.example`, `src/env.ts` (bảng môi trường của bạn), `src/fixtures.ts` (đã compose
-sẵn), một page object mẫu, một spec mẫu, `README.md`. Thêm `--auth` thì có `LoginPage`,
-`credentials`, `authenticators` và `tests/setup/auth.setup.ts`.
+sẵn), một page object mẫu, một spec mẫu, `README.md`, `CLAUDE.md`, và **ba skill** trong
+`.claude/skills/`. Thêm `--auth` thì có `LoginPage`, `credentials`, `authenticators` và
+`tests/setup/auth.setup.ts`.
+
+| Skill nạp vào dự án | Trả lời |
+|---|---|
+| `qc-flow` | Thêm một màn hình / một luồng / một spec thì làm gì, theo thứ tự nào |
+| `testcase-standard` | Một test case phải trông thế nào; tám verb; `source` và cổng duyệt |
+| `jira` | Ghi việc lên Jira; phân biệt bug sản phẩm với lỗi của bộ test |
+
+Chúng **do kit phát hành**, không phải của dự án — sửa tại chỗ sẽ mất ở lần `sync` sau.
 
 ### Dựng tay
 
@@ -97,8 +106,13 @@ Nâng cấp:
 
 ```bash
 npm i "github:bangdinh/qc-kit#<tag-mới>"  # xem tag: github.com/bangdinh/qc-kit/tags
+npx qc-kit sync                            # refresh .claude/skills theo bản kit vừa cài
 npm run typecheck && npx playwright test  # nghiệm thu ngay: kit đổi API thì typecheck bắt
 ```
+
+`sync` ghi đè **đúng** tập asset dùng chung (hiện là `.claude/skills/`) và không đụng
+`src/`, `tests/`, `package.json`, `README.md`, `CLAUDE.md` — thứ dự án sở hữu. Đó là điều
+thay cho việc copy tay `jira.sh` giữa các repo: một nguồn, một lệnh.
 
 `scaffold` tự điền dependency này theo **tag mới nhất** của kit lúc sinh dự án, nên dự án
 mới không phải sửa tay.
