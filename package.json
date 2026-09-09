@@ -1,6 +1,6 @@
 {
   "name": "qc-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bo kit QC dung chung — automation web/mobile/backend, moi du an ke thua thay vi copy khung",
   "type": "commonjs",
   "scripts": {

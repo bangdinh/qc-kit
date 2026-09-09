@@ -11,6 +11,21 @@ diễn giải lại cho người đọc.
 
 ## [Unreleased]
 
+## v0.2.0 — 2026-09-09
+
+### Added / Changed
+- phát hành theo tag, client pin đúng một version
+- sinh dự án automation mới, kèm Makefile và commit hook
+- đóng gói qc-kit thành package cài được, tách fixture khỏi sản phẩm
+- hợp đồng test case, validate và dịch step sang Playwright
+- thêm skill jira và research-and-recommend
+
+### Other
+- cd qc-kit && git commit -F - <<'MSG' [RPA-4514] refactor: dọn lớp sản phẩm khỏi kit, thêm make smoke, viết lại tài liệu
+- ONBOARDING.md, skill qc-concept, trang tổng quan
+- Create common components - In progress
+- Init project structure
+
 ## v0.1.0 — 2026-09-09
 
 ### Added / Changed
