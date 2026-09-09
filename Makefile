@@ -4,7 +4,7 @@
 # Chạy `make` không tham số để xem danh sách.
 
 .DEFAULT_GOAL := help
-.PHONY: help verify build test typecheck new pack clean hooks
+.PHONY: help verify build test typecheck new pack smoke clean hooks
 
 NAME ?=
 OUT  ?= $(NAME)
@@ -39,6 +39,9 @@ new: build ## Sinh dự án automation mới (cần NAME=)
 		exit 1; \
 	fi
 	node cmd/scaffold/index.js new $(NAME) --out $(OUT) $(SCAFFOLD_FLAGS)
+
+smoke: ## Nghiệm thu thật: sinh dự án, cài từ tarball, chạy. Cần browser.
+	bash scripts/smoke.sh
 
 pack: build ## Đóng gói tarball để thử cài ở nơi khác
 	npm pack

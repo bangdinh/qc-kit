@@ -1,42 +1,57 @@
 # qc-kit
 
-Bộ kit QC **dùng chung** cho automation web · mobile · backend — mỗi dự án kế thừa thay vì copy
-khung. Hôm nay repo đã có tầng runtime web: framework kiểm thử end-to-end xây trên
-[Playwright](https://playwright.dev) + TypeScript, theo mô hình **Page Object Model kết hợp custom
-fixtures**.
+Bộ kit QC **dùng chung** cho automation web · mobile · backend — mỗi dự án kế thừa thay
+vì copy khung. Xây trên [Playwright](https://playwright.dev) + TypeScript, mô hình Page
+Object kết hợp custom fixtures.
 
-> **Lần đầu vào repo?** Đọc [ONBOARDING.md](ONBOARDING.md) trước — 5 phút, đủ hiểu qc-kit đứng ở
-> đâu giữa `platform-qc-agent`, `web-first-automation` và Dify, cùng luật quyết định code nào
-> thuộc repo nào. README này nói **cách chạy**; [STRUCTURE.md](STRUCTURE.md) nói **vì sao code có
-> hình dạng đó**.
+Kit **không chứa test của sản phẩm nào**. Nó chứa cơ chế: cấu hình, session, step vào
+report, base class, hợp đồng test case, và một generator dựng dự án mới.
 
-## Dùng qc-kit trong một dự án khác
+> **Lần đầu vào repo?** Đọc [ONBOARDING.md](ONBOARDING.md) trước — 5 phút, đủ hiểu qc-kit
+> đứng ở đâu giữa `platform-qc-agent`, `web-first-automation` và Dify.
+> [STRUCTURE.md](STRUCTURE.md) nói **vì sao code có hình dạng đó**;
+> [docs/adr/](docs/adr/) ghi các quyết định khó lùi.
 
-**Cách nhanh nhất — để scaffold sinh hộ:**
+---
+
+## 1. Dựng một dự án automation mới
 
 ```bash
 npx qc-kit new kho-hang --auth        # thêm --api nếu có suite API
-cd kho-hang && npm install && npm run install:browsers
+cd kho-hang
+npm install
+npm run install:browsers
 cp .env.example .env                  # điền URL và tài khoản
 npx playwright test
 ```
 
-Trong chính repo kit thì dùng `make new NAME=kho-hang OUT=../kho-hang AUTH=1 API=1`.
+Đứng trong repo kit thì dùng `make`:
 
-Không có `--auth` thì dự án sinh ra chạy được **ngay**, không cần tài khoản nào.
+```bash
+make new NAME=kho-hang OUT=../kho-hang AUTH=1 API=1
+```
 
-**Hoặc dựng tay** — một dự án tiêu thụ chỉ cần bốn file:
+Không có `--auth` thì dự án sinh ra **chạy được ngay**, không cần tài khoản nào.
+
+Sinh ra: `package.json`, `tsconfig.json`, `playwright.config.ts` (một lời gọi preset),
+`.env.example`, `src/env.ts` (bảng môi trường của bạn), `src/fixtures.ts` (đã compose
+sẵn), một page object mẫu, một spec mẫu, `README.md`. Thêm `--auth` thì có `LoginPage`,
+`credentials`, `authenticators` và `tests/setup/auth.setup.ts`.
+
+### Dựng tay
 
 ```bash
 npm i qc-kit @playwright/test
-npx playwright install --with-deps
 ```
 
 ```ts
-// src/env.ts — bảng môi trường của DỰ ÁN BẠN, kit không biết URL nào
+// src/env.ts — bảng môi trường của DỰ ÁN BẠN. Kit không biết URL nào.
 import { defineEnvironments } from 'qc-kit/config';
 export const config = defineEnvironments({
-  beta: { baseURL: 'https://…', timeouts: { action: 15_000, navigation: 30_000, expect: 10_000, test: 60_000 } },
+  beta: {
+    baseURL: 'https://beta.example.com',
+    timeouts: { action: 20_000, navigation: 45_000, expect: 15_000, test: 90_000 },
+  },
 }).resolve();
 
 // playwright.config.ts
@@ -44,525 +59,207 @@ import { definePlaywrightConfig } from 'qc-kit/config';
 import { config } from './src/env';
 export default definePlaywrightConfig({ env: config });
 
-// src/pages/StockPage.ts
-import { BasePage } from 'qc-kit/core';
-export class StockPage extends BasePage { /* locator + hành động */ }
-
-// src/fixtures.ts — dự án tự compose; kit cố tình KHÔNG export sẵn một `test`
+// src/fixtures.ts — dự án tự compose. Kit cố tình KHÔNG export sẵn một `test`.
 import { mergeTests, expect } from '@playwright/test';
 import { createApiFixture, createDataFixture, logFixture, pagesFixture } from 'qc-kit/fixtures';
-import { createAuthFixture } from 'qc-kit/core';
+import { config } from './env';
+
 export const test = mergeTests(
   pagesFixture,
   createApiFixture({ apiURL: config.apiURL }),
   createDataFixture({ accounts }),
-  createAuthFixture(standardUser, { baseURL: config.baseURL }),
   logFixture,
 );
 export { expect };
 ```
 
-Kit **không** export sẵn một `test` đã compose: làm vậy thì nó phải nêu tên bảng môi
-trường, tài khoản và page object của một sản phẩm — và mọi dự án cài về đều thừa kế sản
-phẩm của người khác.
+Kit không export sẵn một `test` đã compose vì làm vậy nó phải nêu tên bảng môi trường,
+tài khoản và page object của một sản phẩm — và mọi dự án cài về đều thừa kế sản phẩm của
+người khác.
 
-**Subpath**: `qc-kit/config` · `qc-kit/core` · `qc-kit/contract` · `qc-kit/api` ·
-`qc-kit/fixtures` · `qc-kit/utils` · `qc-kit/types`.
+## 2. Kit gồm gì
 
-**Không có màn đăng nhập?** `definePlaywrightConfig({ env, projects: { auth: false } })`.
-Để mặc định (bật) mà thiếu file `*.setup.ts` thì preset báo lỗi ngay lúc đọc config, kèm
-đúng việc cần làm — thay vì để từng test chết vì thiếu file session.
-
-`@playwright/test` là **peer dependency tuỳ chọn**: suite API thuần cài `qc-kit` mà không
-cần browser.
-
----
-
-## 1. Yêu cầu môi trường
-
-| | |
+| Subpath | Dùng để |
 |---|---|
-| Node.js | **20 trở lên** (`@playwright/test` 1.63 yêu cầu) |
-| npm | đi kèm Node |
-| Hệ điều hành | Windows / macOS / Linux |
+| `qc-kit/config` | `defineEnvironments` · `definePlaywrightConfig` · `envVar`/`envFlag`/`envNumber` · `STORAGE_STATE` |
+| `qc-kit/core` | `BasePage` · `BaseComponent` · `Authenticator` · `createAuthSetup` · `createAuthFixture` · session · `step()` · `logger` |
+| `qc-kit/contract` | Hợp đồng test case: type, validate, dịch step sang Playwright, `toTestId` |
+| `qc-kit/api` | `BaseApiClient` — retry, auth header, bọc step sẵn |
+| `qc-kit/fixtures` | `pagesFixture` · `createApiFixture` · `createDataFixture` · `logFixture` |
+| `qc-kit/utils` | random · date · file · polling |
+| `qc-kit/types` | `Credentials` · `Overrides` |
+| `qc-kit/scaffold` | Phần thuần của generator (`plan`, `render`) |
 
-```bash
-node -v      # phải in ra v20.x hoặc cao hơn
-```
+`@playwright/test` là **peer dependency tuỳ chọn** — suite API thuần cài kit mà không cần
+browser.
 
-## 2. Cài đặt — bốn bước, làm một lần cho mỗi máy
+## 3. Biến môi trường kit đọc
 
-```bash
-npm install                   # cài thư viện
-npm run install:browsers      # tải browser (~400 MB, chỉ một lần)
-cp .env.example .env          # cấu hình máy bạn — đã git-ignore
-```
-
-Sau đó mở `.env` và điền vào. **Đây là file duy nhất bạn cần sửa để chạy được suite** —
-không có URL, tài khoản hay timeout nào bị hardcode ở chỗ khác.
-
-```ini
-TEST_ENV=beta                 # chọn khối nào trong src/config/environments.ts
-COMPANY_CODE=ma-doanh-nghiep  # mã doanh nghiệp màn hình login hỏi ở bước đầu
-USER_USERNAME=qa.account
-USER_PASSWORD=•••••••
-```
-
-Kiểm tra cài đặt mà không cần đụng tới app:
-
-```bash
-npm run typecheck             # tsc --noEmit — không in ra gì là đạt
-npx playwright test --list    # liệt kê test mà mỗi project sẽ chạy
-```
-
-### Toàn bộ biến `.env` chấp nhận
-
-| Biến | Bắt buộc | Mặc định | Dùng để làm gì |
-|---|---|---|---|
-| `TEST_ENV` | không | `local` | Chọn một khối trong `src/config/environments.ts`: `local`, `dev`, `beta`, `staging`, `prod` |
-| `COMPANY_CODE` | **có**¹ | — | Mã doanh nghiệp — bước 1 của luồng đăng nhập app này |
-| `USER_USERNAME` / `USER_PASSWORD` | **có**¹ | — | Tài khoản test chuẩn |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | không | — | Role thứ hai, cho spec nào cần |
-| `BASE_URL` / `API_URL` | xem dưới | lấy từ bảng | URL đích. Điền vào đây thì **thắng mọi môi trường**, kể cả khi đổi `TEST_ENV`. `API_URL` bỏ trống thì lấy theo `BASE_URL` |
-| `SESSION_TTL_MINUTES` | không | `30` | Session đã cache được dùng lại bao lâu trước khi đăng nhập lại |
-| `HEADED` | không | tắt | `1` = hiện cửa sổ browser khi chạy. CI luôn headless, biến này bị bỏ qua |
-| `SLOW_MO` | không | `0` | Làm chậm mỗi thao tác N mili giây để mắt người theo kịp. Chỉ có tác dụng khi `HEADED=1` |
-| `API_TOKEN` | không | — | Bearer token cấp sẵn cho spec API |
-| `ACTION_TIMEOUT` / `NAVIGATION_TIMEOUT` / `EXPECT_TIMEOUT` / `TEST_TIMEOUT` | không | lấy từ bảng | Override tính bằng mili giây |
-| `LOG_LEVEL` | không | `info` | `debug` \| `info` \| `warn` \| `error` |
-
-¹ Chỉ bắt buộc với test cần đăng nhập. Thiếu chúng thì suite vẫn chạy được: setup project
-ghi ra một session rỗng, còn test cần tài khoản sẽ tự skip kèm thông báo nói rõ đang
-thiếu biến nào.
-
-> Giá trị để trống nghĩa là *"dùng mặc định"*, không phải *"dùng chuỗi rỗng"*. Chỉ điền
-> một biến khi bạn thật sự muốn override nó.
-
-### URL đích: hai cách khai báo
-
-Có hai chỗ đặt được URL, và chúng phục vụ hai kiểu dự án khác nhau:
-
-| Cách | Đặt ở | Hợp với |
+| Biến | Mặc định | Dùng để làm gì |
 |---|---|---|
-| **`.env`** | `BASE_URL` / `API_URL` | Dự án chỉ chạy vào một môi trường, hoặc mỗi người một URL (PR preview, máy dev riêng) |
-| **Bảng môi trường** | `src/config/environments.ts` | Dự án đổi qua lại nhiều môi trường bằng `TEST_ENV` |
+| `TEST_ENV` | entry đầu bảng | Chọn một khối trong bảng môi trường của dự án |
+| `BASE_URL` / `API_URL` | lấy từ bảng | **Thắng mọi môi trường**, kể cả khi đổi `TEST_ENV`. `API_URL` trống thì theo `BASE_URL` |
+| `SESSION_TTL_MINUTES` | `30` | Session đã cache dùng lại bao lâu trước khi đăng nhập lại |
+| `API_TOKEN` | — | Bearer token mặc định cho `createApiFixture` |
+| `HEADED` | tắt | `1` = hiện cửa sổ browser. **CI bỏ qua biến này** |
+| `SLOW_MO` | `0` | Chậm N mili giây mỗi thao tác. Chỉ có tác dụng khi `HEADED=1` |
+| `ACTION_TIMEOUT` · `NAVIGATION_TIMEOUT` · `EXPECT_TIMEOUT` · `TEST_TIMEOUT` | lấy từ bảng | Override tính bằng mili giây |
+| `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
 
-Thứ tự ưu tiên: **biến môi trường thật của process → `.env` → bảng**.
+> Giá trị **để trống** nghĩa là *"dùng mặc định"*, không phải *"dùng chuỗi rỗng"*. Nhờ
+> vậy placeholder trống trong `.env.example` không bao giờ ghi đè một mặc định thật.
 
-Cái bẫy cần nhớ: khi `BASE_URL` đã có giá trị trong `.env`, nó áp cho *mọi* môi trường.
-Đổi `TEST_ENV=staging` mà quên xoá `BASE_URL` thì test vẫn chạy vào URL cũ và không có
-cảnh báo nào — vì đây đúng là hành vi override được thiết kế như vậy. Nếu bạn hay chuyển
-môi trường, để `BASE_URL` trống và khai báo URL trong bảng.
+Thứ tự ưu tiên cố định: **biến môi trường thật của process → `.env` → bảng**.
 
-Bảng cũng không bắt buộc phải có URL. Một dự án mới có thể để bảng chỉ còn timeout và
-khai báo URL hoàn toàn trong `.env`:
+Cái bẫy cần nhớ: `BASE_URL` đã có giá trị trong `.env` thì nó áp cho *mọi* môi trường.
+Đổi `TEST_ENV=staging` mà quên xoá `BASE_URL` thì test vẫn chạy vào URL cũ, không có cảnh
+báo nào — đây đúng là hành vi override được thiết kế như vậy.
 
-```ts
-export const environments = defineEnvironments({
-  beta: { timeouts: { action: 20_000, navigation: 45_000, expect: 15_000, test: 90_000 } },
-});
-```
-
-Thiếu cả hai chỗ thì lần chạy dừng ngay với thông báo chỉ đúng việc cần làm:
+Thiếu cả hai chỗ thì dừng ngay với thông báo chỉ đúng việc cần làm:
 
 ```
 Error: No base URL for environment "beta". Either set BASE_URL in .env,
 or give "beta" a baseURL in the environment table.
 ```
 
-## 3. Chạy test
+## 4. Các project mà preset dựng ra
 
-```bash
-npm test                 # chạy tất cả
-npm run test:ui          # UI + E2E, đã đăng nhập
-npm run test:api         # chỉ API, không mở browser
-npm run test:guest       # spec chạy ở trạng thái chưa đăng nhập (login, đăng ký, lỗi)
-npm run test:smoke       # mọi test gắn tag @smoke
-npm run test:headed      # xem browser chạy thật
-npm run test:debug       # Playwright inspector, chạy từng bước
-npm run test:watch       # chế độ UI mode
-npm run report           # mở HTML report của lần chạy gần nhất
-npm run codegen          # ghi lại selector từ app thật
+| Project | Chạy gì | Trạng thái đăng nhập | Tắt bằng |
+|---|---|---|---|
+| `unit` | `src/**/*.test.ts` | không mở browser | **mặc định tắt** — bật bằng `unit: true` |
+| `setup` | `tests/**/*.setup.ts` | thực hiện việc đăng nhập | `auth: false` |
+| `api` | `tests/api/**` | bearer token, không mở browser | `api: false` |
+| `chromium` | `tests/{ui,e2e}/**` trừ `@guest` | đã đăng nhập | `web: false` |
+| `chromium-guest` | spec gắn tag `@guest` | chưa đăng nhập | `guest: false` hoặc `web: false` |
+
+```ts
+definePlaywrightConfig({
+  env: config,
+  projects: { api: false, auth: false },   // sản phẩm không có API, không có đăng nhập
+  extraProjects: [ /* firefox, mobile… */ ],
+  overrides: { workers: 2 },               // bất cứ thứ gì Playwright chấp nhận
+});
 ```
 
-Chạy một spec, một test, hoặc một project:
+**Không có màn đăng nhập?** `projects: { auth: false }`. Để mặc định (bật) mà thiếu file
+`*.setup.ts` thì preset báo lỗi ngay lúc đọc config, kèm đúng việc cần làm — thay vì để
+từng test chết vì thiếu file session.
 
-```bash
-npx playwright test tests/ui/Login.spec.ts
-npx playwright test -g "Login success"
-npx playwright test --project=chromium-guest
-TEST_ENV=staging npx playwright test          # đổi môi trường cho riêng lần chạy này
-```
+`unit` mặc định tắt vì `testDir` của nó là `./src`, tức src của **người gọi**.
 
-### Xem test chạy — hai chế độ khác nhau
-
-**Headed** — browser thật hiện lên, test chạy như người dùng thật. Bật bằng `.env`, nên
-không cần nhớ flag và cũng không phải sửa code:
+### Xem test chạy
 
 ```ini
 HEADED=1        # hiện cửa sổ browser
-SLOW_MO=300     # chậm lại 300ms mỗi thao tác cho dễ nhìn
+SLOW_MO=300     # chậm 300ms mỗi thao tác cho mắt theo kịp
 ```
 
-Khi `HEADED=1`, config tự làm thêm hai việc:
+Khi `HEADED=1`, preset tự mở browser full màn hình (`--start-maximized` + `viewport:
+null`) và **hạ xuống 1 worker** — nhiều cửa sổ tranh nhau màn hình thì không ai theo nổi.
+Chạy headless thì quay lại 1280×720 để kết quả ổn định giữa các máy. Spec phụ thuộc kích
+thước khung chính xác thì tắt maximize: `definePlaywrightConfig({ env, maximized: false })`.
 
-- **Mở browser full màn hình** (`--start-maximized` + `viewport: null`) thay vì khung cố
-  định 1280×720 của device preset. Chạy headless thì quay lại 1280×720 để kết quả ổn
-  định giữa các máy.
-- **Hạ xuống 1 worker** — nhiều cửa sổ browser tranh nhau màn hình thì mắt người không
-  theo nổi.
+Trong CI biến này bị bỏ qua hoàn toàn — agent không có màn hình.
 
-Trong CI biến này bị bỏ qua hoàn toàn: agent không có màn hình, chạy headed sẽ fail ngay
-từ lúc khởi động browser.
-
-Nếu spec phụ thuộc vào kích thước khung chính xác (responsive breakpoint, so sánh ảnh),
-tắt maximize đi vì cửa sổ full màn hình mỗi máy một kích thước:
-
-```ts
-export default definePlaywrightConfig({ env: config, maximized: false });
-```
-
-Chạy một lần mà không muốn sửa `.env`:
+## 5. Làm việc trên chính kit
 
 ```bash
-HEADED=1 npx playwright test          # qua biến môi trường
-npm run test:headed                   # hoặc dùng flag --headed của Playwright
+make              # danh sách lệnh
+make verify       # typecheck + build + unit test — cổng duy nhất trước khi commit
+make smoke        # nghiệm thu thật: sinh dự án, cài từ tarball, CHẠY. Cần browser.
+make new NAME=x   # sinh dự án automation mới
+make pack         # tarball để thử cài nơi khác
+make hooks        # bật .githooks (mỗi clone một lần)
+make clean
 ```
 
-**UI mode** — giao diện riêng của Playwright: cây test, time-travel qua từng step, tự
-chạy lại khi sửa file. Đây là chế độ để *soạn* và *gỡ* test, không phải để chạy cả suite:
+**TDD là bắt buộc**: viết `*.test.ts` đỏ trước, rồi mới code. `make verify` không cần
+browser, không cần credential, không cần mạng — chạy được trên máy sạch.
 
-```bash
-npm run test:watch      # playwright test --ui
-npm run test:debug      # inspector, dừng ở từng bước
-```
+`make smoke` bắt lớp lỗi mà unit test không thấy: template không compile, `exports` map
+sai, preset dựng nhầm đồ thị project. Nó đã bắt được hai lỗi thật.
 
-### Chạy test trong VS Code
-
-Cài extension [Playwright Test for VSCode](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright)
-— workspace đã có sẵn file gợi ý cài trong `.vscode/extensions.json`.
-
-**Nếu Test Explorer hiện `playwright.config.ts [chromium-guest] — disabled` và không thấy
-test nào:** đó là hành vi mặc định của extension, không phải lỗi config. Extension chỉ tự
-bật **project đầu tiên** trong file config, mà project đầu tiên ở đây là `setup` —
-project này không chứa spec nào của người dùng.
-
-Cách sửa, làm một lần cho mỗi workspace:
-
-1. Mở panel **Playwright** (cùng hàng với Terminal / Output / Ports ở dưới cùng).
-2. Ở mục **PROJECTS**, tick ít nhất `chromium` và `chromium-guest`.
-3. Bấm nút refresh của Test Explorer.
-
-Trạng thái này VS Code lưu trong workspace state của máy bạn, không nằm trong repo, nên
-mỗi người phải tự tick một lần.
-
-Thêm một điểm dễ nhầm: **một test chỉ xuất hiện dưới đúng một project.** `Login.spec.ts`
-gắn tag `@guest` nên nó chỉ thuộc `chromium-guest`; bật mỗi `chromium` thì vẫn không thấy
-gì. Kiểm tra nhanh từ terminal:
-
-```bash
-npx playwright test --list --project=chromium-guest
-```
-
-### Hiện tại đang có gì
-
-Suite mới có một spec là `tests/ui/Login.spec.ts`, và nó đã chạy pass với tài khoản
-thật. Điều kiện duy nhất là `.env` đã điền `COMPANY_CODE` cùng tài khoản — thiếu thì
-test tự skip chứ không fail.
-
-Luồng đăng nhập đi qua **hai origin**:
-
-| Bước | Ở đâu | Locator dựa vào |
-|---|---|---|
-| 1. Mã doanh nghiệp | `beta-vmsmart-next.fcam.vn/vi/login` | label, `#company`, class `cap-auth-*` — trang này không có `data-testid` |
-| 2. Tài khoản / mật khẩu | Keycloak: `staging-sso.fcam.vn/realms/<company>/…` | `data-testid` thật: `sso-login-username-input`, `sso-login-password-input`, `sso-login-submit-btn` |
-
-Chuyển tiếp giữa hai bước do `/api/auth/login?company=<code>` thực hiện.
-
-## 4. Ai là người đăng nhập
-
-Không spec nào trong `tests/ui` hay `tests/e2e` được gọi `LoginPage.signIn()`. Khi bật
-`fullyParallel`, một lệnh đăng nhập trong `beforeEach` sẽ chạy lại ở từng spec file, và
-tất cả cùng tranh nhau ghi vào một file session.
-
-| Tình huống | Cơ chế |
-|---|---|
-| **Mặc định** | `tests/setup/auth.setup.ts` đăng nhập **một lần cho cả lần chạy** và ghi ra `playwright/.auth/user.json`. Project `chromium` phụ thuộc vào nó nên khởi động là đã đăng nhập sẵn. |
-| Session còn hạn | Dùng lại nguyên trạng khi còn trẻ hơn `SESSION_TTL_MINUTES` — chạy lại ở máy local sẽ bỏ qua hẳn bước đăng nhập qua UI. |
-| Suite không dùng được session chung | Import `authenticatedTest` thay cho `test` — mỗi **worker** đăng nhập nhiều nhất một lần, vào file riêng của nó. |
-| Chính test đăng nhập | Gắn tag `@guest`; nó chạy dưới project `chromium-guest`, hoàn toàn không có session. |
-
-File session được ghi theo kiểu atomic, nên một worker đọc file trong lúc worker khác
-đang làm mới nó sẽ không bao giờ đọc phải file ghi dở.
-
-```bash
-rm -rf playwright/.auth/*.json    # ép đăng nhập lại từ đầu ở lần chạy sau
-```
-
-## 5. Các project của Playwright
-
-| Project | Chạy gì | Trạng thái đăng nhập |
-|---|---|---|
-| `unit` | `src/**/*.test.ts` — test của chính kit | không mở browser. **Mặc định tắt**: `./src` là src của *người gọi*, nên chỉ kit tự bật |
-| `setup` | `tests/setup/*.setup.ts` | thực hiện việc đăng nhập. Tắt cùng `projects: { auth: false }` |
-| `api` | `tests/api/**` | bearer token, không mở browser |
-| `chromium` | `tests/ui/**`, `tests/e2e/**` trừ `@guest` | đã đăng nhập (storage state) |
-| `chromium-guest` | spec gắn tag `@guest` | chưa đăng nhập |
-
-Bố cục này do `definePlaywrightConfig()` dựng ra; `playwright.config.ts` chỉ còn một
-dòng. Muốn điều chỉnh thì dùng option, đừng fork lại preset:
-
-```ts
-export default definePlaywrightConfig({
-  env: config,
-  projects: { api: false },        // sản phẩm không có suite API
-  extraProjects: [ /* firefox, mobile… */ ],
-  overrides: { workers: 2 },       // bất cứ thứ gì Playwright chấp nhận
-});
-```
-
-## 6. Cấu trúc thư mục
+## 6. Cấu trúc
 
 ```
 qc-kit/
-├── playwright.config.ts            # một dòng — gọi preset
-├── .env                            # cấu hình máy bạn (git-ignored)
+├── CLAUDE.md · ONBOARDING.md · STRUCTURE.md
+├── Makefile · scripts/smoke.sh · .githooks/commit-msg
+├── docs/
+│   ├── adr/                       quyết định khó lùi
+│   ├── testcase-standard.md       hợp đồng test case
+│   ├── TECH_DEBT.md
+│   └── vong-khep-kin-qc.html      bức tranh tổng quan hệ sinh thái
 │
-├── src/
-│   ├── config/                     # ── framework ──────────────────────────
-│   │   ├── env.ts                  #   đọc .env + envVar/envFlag/envNumber
-│   │   ├── define-environments.ts  #   defineEnvironments(): cách đọc một bảng
-│   │   ├── define-config.ts        #   definePlaywrightConfig(): bố cục project
-│   │   ├── paths.ts                #   nơi cache session
-│   │   └── environments.ts         # ── dự án: bảng URL ─────────────────────
-│   │
-│   ├── core/                       # ── framework: lớp cơ sở ───────────────
-│   │   ├── base.ui-object.ts       #   step(), capture(), helper locator
-│   │   ├── base.page.ts            #   BasePage: open(), reload(), screenshot()
-│   │   ├── base.component.ts       #   BaseComponent: mảnh UI theo root locator
-│   │   ├── auth.ts                 #   hợp đồng Authenticator + login setup/worker
-│   │   ├── session.ts              #   storage state: TTL, ghi atomic
-│   │   ├── step.ts                 #   step cho report, an toàn cả ngoài test
-│   │   └── logger.ts               #   log ra console + attach vào report
-│   │
-│   ├── pages/                      # ── dự án: mỗi màn hình một class ──────
-│   ├── components/                 # ── dự án: header, modal, grid… ────────
-│   │
-│   ├── api/
-│   │   ├── clients/base.client.ts  #   framework: retry, auth header, step
-│   │   └── models/                 #   dự án: type request/response
-│   │
-│   ├── fixtures/                   # thứ mà spec import vào
-│   │   ├── index.ts                #   `test`, `expect`, `authenticatedTest`
-│   │   ├── pages.fixture.ts        #   createPage() + fixture cho từng page
-│   │   ├── api.fixture.ts          #   apiContext, apiToken, createClient()
-│   │   ├── data.fixture.ts         #   testData: tài khoản + factory
-│   │   ├── auth.fixture.ts         #   dây nối cho login theo worker
-│   │   └── log.fixture.ts          #   attach log vào report (tự động)
-│   │
-│   ├── data/
-│   │   ├── credentials.ts          #   tài khoản đọc từ .env — không secret trong git
-│   │   ├── authenticators.ts       #   page object nào đăng nhập, với tài khoản nào
-│   │   └── factories/              #   buildUser()… hợp lệ sẵn, override được
-│   │
-│   ├── utils/                      # random, date, file, polling
-│   └── types/                      # type TS dùng chung
+├── src/                        ── KIT: không dòng nào biết một sản phẩm ──
+│   ├── config/     env · defineEnvironments · definePlaywrightConfig · paths
+│   ├── core/       BasePage · BaseComponent · auth · session · step · logger
+│   ├── contract/   hợp đồng test case: type · validate · translate · testid
+│   ├── api/        BaseApiClient
+│   ├── fixtures/   factory fixture (KHÔNG export sẵn một `test`)
+│   ├── scaffold/   phần thuần của generator
+│   ├── utils/  types/
+│   └── **/*.test.ts               unit test nằm cạnh code nó test
 │
-├── tests/
-│   ├── setup/auth.setup.ts         # đăng nhập một lần cho cả lần chạy
-│   ├── ui/  e2e/  api/             # các spec
-│   └── README.md                   # test nào thuộc thư mục nào
-│
-└── playwright/.auth/               # session đã cache (git-ignored)
+└── cmd/scaffold/               ── generator + template dự án mới ──
+    └── templates/                 gồm cả LoginPage, credentials, auth.setup mẫu
 ```
 
-**Một luật phụ thuộc duy nhất giữ toàn bộ cấu trúc này đứng vững:** `src/config`,
-`src/core`, `src/utils` và `src/types` không bao giờ import từ `src/pages`,
-`src/components` hay `src/data`. Phụ thuộc chỉ chảy một chiều — đó là điều sau này cho
-phép tách tầng framework thành package dùng chung. Kiểm tra bất cứ lúc nào:
+**Một luật phụ thuộc giữ toàn bộ đứng vững:** không file nào trong `src/` được biết một
+sản phẩm cụ thể. Kiểm bất cứ lúc nào:
 
 ```bash
-grep -rE "from '\.\./(pages|components|data)" src/core src/config src/utils src/types
+grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/
 ```
 
-In ra dòng nào là vi phạm dòng đó. [STRUCTURE.md](STRUCTURE.md) giải thích vì sao có luật
-này, các tầng gồm những gì, và một lần chạy thực thi ra sao.
+In ra dòng nào là vi phạm dòng đó. Ví dụ về sản phẩm nằm ở `cmd/scaffold/templates/`,
+không nằm trong `src/`.
 
-## 7. Thêm một page object
+## 7. Quy ước
 
-**1. `src/pages/CartPage.ts`**
+- **Locator**: `data-testid` là đích. Chưa có thì `id`/`name` > class team tự đặt >
+  `getByRole` + tên hiển thị > CSS. Tuyệt đối không XPath, và mọi mức tạm phải có comment
+  `TẠM THỜI` nêu lý do.
+- **Chờ đợi**: dựa vào auto-waiting và web-first assertion. `page.waitForTimeout` không
+  được xuất hiện trong code đã commit.
+- **Step**: mọi method public của page object và component bọc thân hàm trong
+  `this.step(...)` — đó là thứ giữ cho một lần fail còn đọc được khi suite đã lớn. Lời gọi
+  API đã được `BaseApiClient` bọc sẵn.
+- **Screenshot**: dùng `screenshot(name)` của page hoặc component. Đừng hardcode đường
+  dẫn; các worker song song sẽ ghi đè lên nhau.
+- **Log**: `logger.info(...)`. Các dòng log được attach vào test dưới tên `run.log`.
+- **Tag**: `@smoke`, `@regression`, `@guest`, `@api` đặt trong tiêu đề test.
+- **Đặt tên**: `PascalCase` cho page object và component; còn lại `*.client.ts`,
+  `*.factory.ts`, `*.fixture.ts`, `*.setup.ts`, `*.spec.ts`, `*.test.ts`.
+- **Độc lập**: mỗi test tự tạo dữ liệu nó cần, không giả định thứ tự chạy.
+- **Secret**: chỉ trong `.env` / `.jira.env` / secret CI. Không bao giờ commit.
 
-```ts
-import { expect } from '@playwright/test';
-import { BasePage } from '../core/base.page';
-
-export class CartPage extends BasePage {
-  protected override readonly path = '/vi/cart';
-
-  readonly items = this.page.getByRole('listitem');
-  readonly checkout = this.page.getByRole('button', { name: 'Thanh toán' });
-
-  override async waitUntilLoaded(): Promise<void> {
-    await expect(this.checkout).toBeVisible();
-  }
-
-  async placeOrder(): Promise<void> {
-    await this.step('đặt hàng', async () => {
-      await this.clickWhenReady(this.checkout);
-    });
-  }
-}
-```
-
-`this.step(...)` bọc hành động vào một step của report, nhờ đó HTML report và trace hiện
-`CartPage: đặt hàng` thay vì một cú click vô danh. Bọc như vậy cho mọi method mô tả ý
-định — tốn một dòng, và đó là thứ giữ cho một lần fail còn đọc được khi suite đã lớn.
-
-**2.** Export nó ở `src/pages/index.ts`, và nếu dùng thường xuyên thì thêm một fixture
-trong `tests/fixtures.ts`.
-
-**3. `tests/ui/Cart.spec.ts`**
-
-```ts
-import { test, expect } from '../fixtures';
-import { CartPage } from '../../src/pages/CartPage';
-
-test('đặt hàng thành công @smoke', async ({ createPage }) => {
-  const cart = createPage(CartPage);
-  await cart.open();
-  await cart.placeOrder();
-  await expect(cart.items).toHaveCount(0);
-});
-```
-
-## 8. Thêm một component
-
-Component được giới hạn trong một root locator, nên locator của nó không bao giờ lọt ra
-phần còn lại của trang. Nó có `step()` và `screenshot()` giống hệt một page.
-
-```ts
-import { type Locator, type Page } from '@playwright/test';
-import { BaseComponent } from '../core/base.component';
-
-export class Header extends BaseComponent {
-  readonly logout = this.root.getByRole('button', { name: 'Đăng xuất' });
-
-  constructor(page: Page, root: Locator = page.getByRole('banner')) {
-    super(page, root);
-  }
-
-  async signOut(): Promise<void> {
-    await this.step('đăng xuất', () => this.clickWhenReady(this.logout));
-  }
-}
-```
-
-## 9. Thêm một API client
-
-```ts
-// src/api/clients/users.client.ts
-import { BaseApiClient } from './base.client';
-import type { User } from '../models';
-
-export class UsersClient extends BaseApiClient {
-  protected override readonly basePath = '/users';
-  getById = (id: string) => this.json<User>('get', `/${id}`);
-  create = (payload: Partial<User>) => this.json<User>('post', '', { data: payload });
-}
-```
-
-```ts
-// tests/api/users.spec.ts
-import { test, expect } from '../fixtures';
-import { UsersClient } from '../../src/api/clients/users.client';
-
-test('tạo được user @api', async ({ createClient, testData }) => {
-  const users = createClient(UsersClient);
-  const created = await users.create(testData.buildUser());
-  expect(created.id).toBeTruthy();
-});
-```
-
-## 10. Thêm một môi trường
-
-Thêm một entry vào bảng trong `src/config/environments.ts` — chỉ vậy thôi. Tên đó tự
-động trở thành một giá trị `TEST_ENV` hợp lệ, và một tên lạ sẽ làm lần chạy fail ngay
-kèm danh sách các tên được chấp nhận.
-
-```ts
-export const environments = defineEnvironments({
-  // …
-  uat: {
-    baseURL: 'https://uat.example.com',
-    apiURL: 'https://uat.example.com/api',
-    timeouts: { action: 20_000, navigation: 45_000, expect: 15_000, test: 90_000 },
-  },
-}, { fallback: 'local' });
-```
-
-## 11. Quy ước
-
-- **Locator**: `getByRole` > `getByLabel` > `getByTestId` > CSS. Tuyệt đối không XPath.
-  Selector phải lấy từ DOM thật — bằng `npm run codegen` hoặc inspector của browser.
-  Không bao giờ tự bịa ra một `data-testid` rồi hy vọng nó tồn tại.
-- **Chờ đợi**: dựa vào auto-waiting và web-first assertion của Playwright.
-  `page.waitForTimeout` không được phép xuất hiện trong code đã commit.
-- **Step**: mọi method public của page object và component đều bọc thân hàm trong
-  `this.step(...)`; lời gọi API đã được `BaseApiClient` tự bọc step sẵn.
-- **Screenshot**: dùng `screenshot(name)` của page hoặc component — nó ghi vào thư mục
-  output riêng của test và tự attach file. Đừng hardcode đường dẫn; các worker chạy song
-  song sẽ ghi đè lên nhau.
-- **Log**: dùng `logger.info(...)` từ `src/core/logger`. Các dòng log được attach vào
-  test dưới tên `run.log`, nhờ đó output của các worker song song vẫn tách bạch.
-- **Tag**: `@smoke`, `@regression`, `@guest`, `@api` đặt trong tiêu đề test, lọc bằng
-  `--grep`.
-- **Đặt tên**: `PascalCase` cho page object và component (`LoginPage.ts`, `Header.ts`),
-  còn lại `*.client.ts`, `*.factory.ts`, `*.fixture.ts`, `*.setup.ts`, `*.spec.ts`.
-- **Độc lập**: mỗi test tự tạo dữ liệu nó cần và không giả định gì về thứ tự chạy.
-- **Secret**: chỉ nằm trong `.env` / secret của CI. `.env` đã git-ignore; không bao giờ
-  commit file này.
-
-## 12. Xử lý sự cố
+## 8. Xử lý sự cố
 
 | Hiện tượng | Nguyên nhân và cách sửa |
 |---|---|
-| `Unknown TEST_ENV "x". Expected one of: …` | Gõ sai trong `.env`, hoặc môi trường đó chưa có trong `src/config/environments.ts` |
-| `Executable doesn't exist at …chrome-headless-shell` | Chưa tải browser — chạy `npm run install:browsers` |
-| Test bị skip: *"Set COMPANY_CODE, USER_USERNAME…"* | `.env` thiếu thông tin đăng nhập — xem §2 |
-| Mọi test fail ngay sau khi đăng nhập | Session cache đã hỏng — `rm -rf playwright/.auth/*.json` rồi chạy lại |
-| Không tìm thấy locator ở màn hình nhập tài khoản | Chính là mấy locator placeholder trong `LoginPage` — xem §3 |
+| `Unknown TEST_ENV "x". Expected one of: …` | Gõ sai trong `.env`, hoặc môi trường đó chưa có trong bảng |
+| `No base URL for environment "x"` | Bảng thiếu `baseURL` và `.env` cũng không có `BASE_URL` |
+| `No setup file matching …setup.ts` | Dự án bật `auth` (mặc định) nhưng chưa có file setup. Thêm nó, hoặc `projects: { auth: false }` |
+| `Executable doesn't exist at …chrome-headless-shell` | Chưa tải browser — `npx playwright install chromium` |
+| Mọi test fail ngay sau khi đăng nhập | Session cache hỏng — `rm -rf playwright/.auth/*.json` rồi chạy lại |
 | Report hiện một cú click trần, không có step | Có method của page object quên bọc `this.step(...)` |
-| Một spec đăng nhập lại mỗi lần chạy | Nó đang tự gọi `signIn()` — xem §4 |
+| Một spec đăng nhập lại mỗi lần chạy | Nó đang tự gọi `signIn()` trong `beforeEach` — xem STRUCTURE.md §5 |
 
 Khi fail, hệ thống tự thu trace, screenshot và video:
 
 ```bash
-npm run report                                   # HTML report
+npx playwright show-report
 npx playwright show-trace test-results/**/trace.zip
 ```
 
-## 13. CI
+## 9. Tài liệu
 
-```yaml
-- run: npm ci
-- run: npx playwright install --with-deps
-- run: npx playwright test
-  env:
-    TEST_ENV: beta
-    COMPANY_CODE: ${{ secrets.COMPANY_CODE }}
-    USER_USERNAME: ${{ secrets.USER_USERNAME }}
-    USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
-- uses: actions/upload-artifact@v4
-  if: always()
-  with: { name: playwright-report, path: playwright-report/ }
-```
-
-Biến `CI=true` (mọi hệ CI đều tự đặt) sẽ bật retry, 4 worker, reporter JUnit ghi ra
-`test-results/junit.xml`, và `forbidOnly`.
-
-## 14. Việc tiếp theo
-
-- [ ] Điền `.env` với `COMPANY_CODE` và tài khoản test thật
-- [ ] Thay locator placeholder của bước nhập tài khoản trong `src/pages/LoginPage.ts`
-- [ ] Viết những component và API client đầu tiên
-- [ ] Dựng pipeline CI theo mẫu ở trên
+| Cần biết | Đọc |
+|---|---|
+| qc-kit đứng ở đâu, ai sở hữu cái gì | [ONBOARDING.md](ONBOARDING.md) |
+| Vì sao code có hình dạng đó, các điểm nối | [STRUCTURE.md](STRUCTURE.md) |
+| Hợp đồng test case | [docs/testcase-standard.md](docs/testcase-standard.md) |
+| Quyết định kiến trúc | [docs/adr/](docs/adr/) |
+| Nợ kỹ thuật đã biết | [docs/TECH_DEBT.md](docs/TECH_DEBT.md) |
+| Bức tranh tổng quan hệ sinh thái | [docs/vong-khep-kin-qc.html](docs/vong-khep-kin-qc.html) |

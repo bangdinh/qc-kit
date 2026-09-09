@@ -1,18 +1,13 @@
-/** Shared types used across layers. App-specific API shapes go in src/api/models. */
+/**
+ * Type dùng chung, không dính sản phẩm nào.
+ *
+ * Shape của API dưới test thuộc về dự án, đặt cạnh client của nó — không đặt ở đây.
+ */
 
 export interface Credentials {
   username: string;
   password: string;
 }
 
-export type UserRole = 'admin' | 'user' | 'guest';
-
-export interface TestUser extends Credentials {
-  id?: string;
-  email: string;
-  fullName: string;
-  role: UserRole;
-}
-
-/** Anything a factory can build with partial overrides. */
+/** Thứ mà một factory dựng được với vài field override. */
 export type Overrides<T> = Partial<T>;

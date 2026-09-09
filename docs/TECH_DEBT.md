@@ -5,41 +5,24 @@ nói rõ **vì sao còn nợ** và **cái gì làm nó trả được**.
 
 ---
 
-## 1. Kit còn mang tri thức sản phẩm — vi phạm luật 2 của chính nó
+## 1. ~~Kit còn mang tri thức sản phẩm~~ — ĐÃ TRẢ 2026-09-09
 
-**Đo 2026-09-09**, chạy check trong `CLAUDE.md`:
+Nợ này đóng ở RPA-4509. Ba file (`src/config/environments.ts`, `src/pages/LoginPage.ts`,
+`src/data/credentials.ts`) cùng cả `src/pages`, `src/data`, `src/components` và `tests/`
+đã **xoá khỏi repo**; bản mẫu tương đương sống ở `cmd/scaffold/templates/` dưới dạng
+trung tính, không mang tên sản phẩm nào.
 
-```
-src/config/environments.ts:22-25   URL thật của FPT VMSmart beta
-src/pages/LoginPage.ts             locator thật + toàn bộ text tiếng Việt màn đăng nhập VMSmart
-src/data/credentials.ts            khái niệm "mã doanh nghiệp" — đặc thù luồng login của VMSmart
-```
+Điều kiện đóng đã đủ: `cmd/scaffold` tồn tại, nên xoá không còn làm mất ví dụ chạy được —
+`make smoke` sinh một dự án thật rồi chạy nó, tốt hơn một suite ví dụ nằm chết trong repo.
 
-**Vì sao còn:** `qc-kit` sinh ra như bộ test của một sản phẩm rồi mới thành kit dùng
-chung. Ba file này là dấu vết của giai đoạn đó. Xoá ngay thì mất luôn ví dụ chạy được
-duy nhất và mất `Login.spec.ts` đang pass với tài khoản thật.
-
-**Trả bằng cách:** chuyển ba file thành **template của `cmd/scaffold`** cộng một dự án ví
-dụ trong `examples/`. Kit giữ `BasePage`/`BaseComponent`/`Authenticator`; VMSmart giữ
-locator của VMSmart.
-
-**Điều kiện:** làm cùng lúc với `cmd/scaffold`. Làm trước thì repo không còn gì chạy được
-để đối chứng.
-
-**Trong lúc chưa trả:** check luật 2 loại trừ đúng ba file này. Bất kỳ file **mới** nào
-nhắc `fcam.vn` / `vmsmart` đều bị chặn — đó là điều check này đang bảo vệ.
-
-**Cập nhật 2026-09-09 (RPA-4507):** ba file này **không còn nằm trong gói publish**.
-`tsconfig.build.json` loại `src/pages`, `src/data`, `src/components` và
-`src/config/environments.ts` khỏi `dist/`, và `src/fixtures` đã đổi thành factory không
-nhắc tên sản phẩm nào (phần compose chuyển sang `tests/fixtures.ts`). Kiểm được:
+Check giờ chạy sạch, không cần loại trừ file nào:
 
 ```bash
-npm run build && grep -rniE "vmsmart|fcam\.vn" dist/ && echo "RÒ RỈ"
+grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/
 ```
 
-Nợ còn lại **nhỏ hơn hẳn**: ba file vẫn nằm trong repo phục vụ suite ví dụ. Trả nốt khi
-làm `cmd/scaffold`.
+Bản `Login.spec.ts` của VMSmart nằm trong lịch sử git (`git log --all -- tests/ui`) nếu
+cần lấy lại; chỗ đúng của nó là một dự án tiêu thụ, không phải kit.
 
 ---
 

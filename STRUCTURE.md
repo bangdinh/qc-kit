@@ -19,10 +19,10 @@ chúng tách bạch:
 | | **Tri thức framework** | **Tri thức sản phẩm** |
 |---|---|---|
 | Trả lời câu hỏi | *Chúng ta test như thế nào?* | *Chúng ta đang test cái gì?* |
-| Ví dụ | một step được ghi vào report ra sao, session được cache thế nào, `.env` override một giá trị mặc định ra sao, lỗi API được định dạng thế nào | `beta` trỏ vào URL nào, mã doanh nghiệp là gì, nút submit ghi chữ "Tiếp tục" |
+| Ví dụ | một step được ghi vào report ra sao, session được cache thế nào, `.env` override một giá trị mặc định ra sao, lỗi API được định dạng thế nào | `beta` trỏ vào URL nào, tài khoản test là gì, nút submit ghi chữ gì |
 | Thay đổi khi | cả nhóm đổi cách làm test | sản phẩm thay đổi |
-| Nằm ở | `src/config` (loader + resolver), `src/core`, `src/utils`, `src/api/clients/base.client.ts` | `src/pages`, `src/components`, `src/data`, `src/config/environments.ts`, `tests/` |
-| Thuộc về | mọi dự án — đây chính là phần sau này thành package dùng chung | riêng dự án này |
+| Nằm ở | **toàn bộ `src/` của repo này** | **dự án tiêu thụ** — kit chỉ giữ bản mẫu ở `cmd/scaffold/templates/` |
+| Thuộc về | mọi dự án — đây là package `qc-kit` | riêng một dự án |
 
 Nếu một thay đổi của sản phẩm buộc bạn phải sửa code framework thì ranh giới đã rò rỉ.
 Đó là tín hiệu hữu ích nhất mà kiến trúc này cho bạn.
@@ -30,15 +30,16 @@ Nếu một thay đổi của sản phẩm buộc bạn phải sửa code framew
 ## 2. Luật phụ thuộc
 
 ```
-tests/**/*.spec.ts
+tests/**/*.spec.ts                     ← trong DỰ ÁN TIÊU THỤ
       │ chỉ import
       ▼
-tests/fixtures.ts ─────────────────── cửa vào duy nhất của spec (dự án tự compose)
+src/fixtures.ts (của dự án) ────────── cửa vào duy nhất của spec; dự án tự compose
       │
-      ├──► src/pages  ─┐
-      ├──► src/components ─┤
-      ├──► src/api/clients ─┼──► src/core ──► src/config, src/utils, src/types
-      └──► src/data ────────┘
+      ├──► pages, components của dự án ─┐
+      │                                 │
+      └──► qc-kit/fixtures ─────────────┼──► qc-kit/core ──► qc-kit/config, /utils, /types
+           qc-kit/api ──────────────────┘         │
+                                                  └──► qc-kit/contract
 ```
 
 **Phụ thuộc chỉ chảy một chiều. Code framework không bao giờ import code sản phẩm.**
@@ -46,7 +47,10 @@ tests/fixtures.ts ─────────────────── cử
 Luật này kiểm chứng được, và đáng chạy trước mỗi lần merge:
 
 ```bash
-grep -rE "from '\.\./(pages|components|data)" src/core src/config src/utils src/types
+# Kit không được biết một sản phẩm nào
+grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/
+# Kit không được gọi LLM
+grep -rE "from ['\"](@anthropic-ai/|openai|langchain)" src/
 ```
 
 In ra dòng nào là vi phạm dòng đó. Mọi thứ còn lại trong tài liệu này đều là hệ quả của
@@ -54,7 +58,7 @@ luật đó.
 
 Ba hệ quả:
 
-- Spec import `tests/fixtures`, không import thẳng `@playwright/test`. Chính điều đó cho
+- Spec import `src/fixtures` của **dự án**, không import thẳng `@playwright/test`. Chính điều đó cho
   phép thêm một fixture — log, dọn dữ liệu, một role mới — mà không phải sửa một spec
   nào.
 - Spec không bao giờ tự khởi tạo page object hay HTTP client; nó xin từ fixture.
@@ -166,14 +170,15 @@ Phân theo loại tri thức, không phải theo tên file:
 
 | Bạn đang thêm… | Tầng | Kế thừa / cắm vào |
 |---|---|---|
-| Một màn hình | `src/pages` | `BasePage`; export ở file barrel, thêm fixture nếu dùng thường xuyên |
-| Một mảnh UI dùng lại được | `src/components` | `BaseComponent`, giới hạn trong một root locator |
-| Một tài nguyên API | `src/api/clients` | `BaseApiClient`; type của nó đặt ở `api/models` |
-| Dữ liệu test sinh ra | `src/data/factories` | expose qua data fixture |
-| Một role đăng nhập thứ hai | `src/data` (ai) + `tests/setup` (khi nào) | `AuthenticatorFactory` + `createAuthSetup` |
-| Một môi trường | `src/config/environments.ts` | một entry trong bảng — không cần gì thêm |
-| Một năng lực cắt ngang (dọn dữ liệu, giả lập network, matcher riêng) | `src/core` + một fixture | phải dùng được cho mọi sản phẩm, nếu không thì nó không phải core |
-| Một spec | `tests/ui`, `tests/e2e`, `tests/api` | xem [tests/README.md](tests/README.md) |
+| Một màn hình | dự án: `src/pages` | `BasePage` từ `qc-kit/core` |
+| Một mảnh UI dùng lại được | dự án: `src/components` | `BaseComponent`, giới hạn trong một root locator |
+| Một tài nguyên API | dự án: `src/api` | `BaseApiClient` từ `qc-kit/api` |
+| Dữ liệu test sinh ra | dự án: `src/data` | expose qua `createDataFixture` |
+| Một role đăng nhập thứ hai | dự án: `src/data` (ai) + `tests/setup` (khi nào) | `AuthenticatorFactory` + `createAuthSetup` |
+| Một môi trường | dự án: `src/env.ts` | một entry trong bảng — không cần gì thêm |
+| Một năng lực cắt ngang (dọn dữ liệu, giả lập network, matcher riêng) | **kit**: `src/core` + một fixture | phải dùng được cho mọi sản phẩm, nếu không thì nó không phải core |
+| Một bản mẫu cho dự án mới | **kit**: `cmd/scaffold/templates` | thêm entry vào `src/scaffold/plan.ts` |
+| Một spec | dự án: `tests/ui`, `tests/e2e`, `tests/api` | README của dự án nói thư mục nào chứa gì |
 
 Dòng cuối là dòng cần nghiêm khắc nhất. Một helper "generic, trừ mỗi cái field này" thì
 không phải generic; cứ để nó ở tầng sản phẩm cho tới khi có sản phẩm thứ hai cần đến.
