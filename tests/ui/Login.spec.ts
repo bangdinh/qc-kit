@@ -1,4 +1,4 @@
-import { test, expect } from '../../src/fixtures';
+import { test, expect } from '../fixtures';
 
 /**
  * Login — https://beta-vmsmart-next.fcam.vn/vi/login

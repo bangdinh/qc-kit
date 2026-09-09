@@ -10,7 +10,7 @@
 Mọi spec đều import fixture dùng chung, không import thẳng `@playwright/test`:
 
 ```ts
-import { test, expect } from '../../src/fixtures';
+import { test, expect } from '../fixtures';
 
 test('ví dụ', async ({ createPage, testData }) => {
   // ...
@@ -31,7 +31,7 @@ tất cả cùng tranh nhau ghi vào một file session.
    worker đăng nhập nhiều nhất một lần và cache vào file riêng:
 
    ```ts
-   import { authenticatedTest as test, expect } from '../../src/fixtures';
+   import { authenticatedTest as test, expect } from '../fixtures';
    ```
 3. **Đang test chính màn hình đăng nhập?** Gắn tag `@guest` cho spec để nó chạy dưới
    project `chromium-guest`, hoàn toàn không có session.

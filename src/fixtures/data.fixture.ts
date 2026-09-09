@@ -1,18 +1,22 @@
 import { test as base } from '@playwright/test';
-import { accounts, companyCode } from '../data/credentials';
-import { buildUser, buildUsers } from '../data/factories/user.factory';
 
-export interface DataFixtures {
-  testData: {
-    accounts: typeof accounts;
-    companyCode: typeof companyCode;
-    buildUser: typeof buildUser;
-    buildUsers: typeof buildUsers;
-  };
+export interface DataFixtures<T> {
+  /** Whatever the project hands in: accounts, factories, tenant codes… */
+  testData: T;
 }
 
-export const dataFixture = base.extend<DataFixtures>({
-  testData: async ({}, use) => {
-    await use({ accounts, companyCode, buildUser, buildUsers });
-  },
-});
+/**
+ * Expose a project's test data to every spec as `testData`.
+ *
+ * Generic on purpose: what counts as test data is entirely product knowledge, so the kit
+ * carries the wiring and none of the content.
+ *
+ *   createDataFixture({ accounts, buildUser })
+ */
+export function createDataFixture<T>(data: T) {
+  return base.extend<DataFixtures<T>>({
+    testData: async ({}, use) => {
+      await use(data);
+    },
+  });
+}

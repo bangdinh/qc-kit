@@ -14,4 +14,8 @@ import { config } from './src/config/environments';
  *       dependencies: ['setup'] },
  *   ]
  */
-export default definePlaywrightConfig({ env: config });
+export default definePlaywrightConfig({
+  env: config,
+  // The kit's own unit tests. Off by default in the preset — see the option's docs.
+  projects: { unit: true },
+});

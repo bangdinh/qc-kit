@@ -33,7 +33,7 @@ Nếu một thay đổi của sản phẩm buộc bạn phải sửa code framew
 tests/**/*.spec.ts
       │ chỉ import
       ▼
-src/fixtures ──────────────────────── cửa vào duy nhất của spec
+tests/fixtures.ts ─────────────────── cửa vào duy nhất của spec (dự án tự compose)
       │
       ├──► src/pages  ─┐
       ├──► src/components ─┤
@@ -54,7 +54,7 @@ luật đó.
 
 Ba hệ quả:
 
-- Spec import `src/fixtures`, không import thẳng `@playwright/test`. Chính điều đó cho
+- Spec import `tests/fixtures`, không import thẳng `@playwright/test`. Chính điều đó cho
   phép thêm một fixture — log, dọn dữ liệu, một role mới — mà không phải sửa một spec
   nào.
 - Spec không bao giờ tự khởi tạo page object hay HTTP client; nó xin từ fixture.

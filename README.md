@@ -10,6 +10,59 @@ fixtures**.
 > thuộc repo nào. README này nói **cách chạy**; [STRUCTURE.md](STRUCTURE.md) nói **vì sao code có
 > hình dạng đó**.
 
+## Dùng qc-kit trong một dự án khác
+
+Kit publish được và cài được. Một dự án tiêu thụ chỉ cần bốn file:
+
+```bash
+npm i qc-kit @playwright/test
+npx playwright install --with-deps
+```
+
+```ts
+// src/env.ts — bảng môi trường của DỰ ÁN BẠN, kit không biết URL nào
+import { defineEnvironments } from 'qc-kit/config';
+export const config = defineEnvironments({
+  beta: { baseURL: 'https://…', timeouts: { action: 15_000, navigation: 30_000, expect: 10_000, test: 60_000 } },
+}).resolve();
+
+// playwright.config.ts
+import { definePlaywrightConfig } from 'qc-kit/config';
+import { config } from './src/env';
+export default definePlaywrightConfig({ env: config });
+
+// src/pages/StockPage.ts
+import { BasePage } from 'qc-kit/core';
+export class StockPage extends BasePage { /* locator + hành động */ }
+
+// src/fixtures.ts — dự án tự compose; kit cố tình KHÔNG export sẵn một `test`
+import { mergeTests, expect } from '@playwright/test';
+import { createApiFixture, createDataFixture, logFixture, pagesFixture } from 'qc-kit/fixtures';
+import { createAuthFixture } from 'qc-kit/core';
+export const test = mergeTests(
+  pagesFixture,
+  createApiFixture({ apiURL: config.apiURL }),
+  createDataFixture({ accounts }),
+  createAuthFixture(standardUser, { baseURL: config.baseURL }),
+  logFixture,
+);
+export { expect };
+```
+
+Kit **không** export sẵn một `test` đã compose: làm vậy thì nó phải nêu tên bảng môi
+trường, tài khoản và page object của một sản phẩm — và mọi dự án cài về đều thừa kế sản
+phẩm của người khác.
+
+**Subpath**: `qc-kit/config` · `qc-kit/core` · `qc-kit/contract` · `qc-kit/api` ·
+`qc-kit/fixtures` · `qc-kit/utils` · `qc-kit/types`.
+
+**Không có màn đăng nhập?** `definePlaywrightConfig({ env, projects: { auth: false } })`.
+Để mặc định (bật) mà thiếu file `*.setup.ts` thì preset báo lỗi ngay lúc đọc config, kèm
+đúng việc cần làm — thay vì để từng test chết vì thiếu file session.
+
+`@playwright/test` là **peer dependency tuỳ chọn**: suite API thuần cài `qc-kit` mà không
+cần browser.
+
 ---
 
 ## 1. Yêu cầu môi trường
@@ -237,7 +290,8 @@ rm -rf playwright/.auth/*.json    # ép đăng nhập lại từ đầu ở lầ
 
 | Project | Chạy gì | Trạng thái đăng nhập |
 |---|---|---|
-| `setup` | `tests/setup/*.setup.ts` | thực hiện việc đăng nhập |
+| `unit` | `src/**/*.test.ts` — test của chính kit | không mở browser. **Mặc định tắt**: `./src` là src của *người gọi*, nên chỉ kit tự bật |
+| `setup` | `tests/setup/*.setup.ts` | thực hiện việc đăng nhập. Tắt cùng `projects: { auth: false }` |
 | `api` | `tests/api/**` | bearer token, không mở browser |
 | `chromium` | `tests/ui/**`, `tests/e2e/**` trừ `@guest` | đã đăng nhập (storage state) |
 | `chromium-guest` | spec gắn tag `@guest` | chưa đăng nhập |
@@ -352,12 +406,12 @@ export class CartPage extends BasePage {
 định — tốn một dòng, và đó là thứ giữ cho một lần fail còn đọc được khi suite đã lớn.
 
 **2.** Export nó ở `src/pages/index.ts`, và nếu dùng thường xuyên thì thêm một fixture
-trong `src/fixtures/pages.fixture.ts`.
+trong `tests/fixtures.ts`.
 
 **3. `tests/ui/Cart.spec.ts`**
 
 ```ts
-import { test, expect } from '../../src/fixtures';
+import { test, expect } from '../fixtures';
 import { CartPage } from '../../src/pages/CartPage';
 
 test('đặt hàng thành công @smoke', async ({ createPage }) => {
@@ -406,7 +460,7 @@ export class UsersClient extends BaseApiClient {
 
 ```ts
 // tests/api/users.spec.ts
-import { test, expect } from '../../src/fixtures';
+import { test, expect } from '../fixtures';
 import { UsersClient } from '../../src/api/clients/users.client';
 
 test('tạo được user @api', async ({ createClient, testData }) => {
