@@ -1,40 +1,27 @@
 /**
- * The single `test` every spec imports:
+ * Fixture building blocks. **The kit exports factories, not a ready-made `test`.**
  *
- *   import { test, expect } from '../../src/fixtures';
+ * A composed `test` has to name a product's environment table, its accounts and its page
+ * objects — so the moment the kit ships one, every consumer inherits somebody else's
+ * product. Each project composes its own:
  *
- * It merges the page, API and data fixtures, so a spec can ask for exactly
- * what it needs and nothing gets constructed that it doesn't.
+ *   export const test = mergeTests(
+ *     pagesFixture,
+ *     createApiFixture({ apiURL: config.apiURL }),
+ *     createDataFixture({ accounts, buildUser }),
+ *     createAuthFixture(standardUser, { baseURL: config.baseURL }),
+ *     logFixture,
+ *   );
+ *
+ * `createAuthFixture` lives in `qc-kit/core` — it is the auth contract, not a fixture
+ * detail.
  */
-import { mergeTests, expect } from '@playwright/test';
-import { pagesFixture } from './pages.fixture';
-import { apiFixture } from './api.fixture';
-import { dataFixture } from './data.fixture';
-import { authFixture } from './auth.fixture';
-import { logFixture } from './log.fixture';
-
-export const test = mergeTests(pagesFixture, apiFixture, dataFixture, authFixture, logFixture);
-
-/**
- * `test` with a session attached, for suites that must sign in themselves.
- *
- * Most specs do not need this: the `chromium` project already starts signed in
- * from the session the `setup` project wrote (playwright.config.ts). Reach for
- * `authenticatedTest` only when the shared session will not do — and then the
- * login runs once per worker, not once per spec file:
- *
- *   import { authenticatedTest as test, expect } from '../../src/fixtures';
- *
- *   test('sees the dashboard', async ({ page }) => { ... });  // already signed in
- */
-export const authenticatedTest = test.extend({
-  storageState: async ({ workerStorageState }, use) => {
-    await use(workerStorageState);
-  },
-});
-
-export { expect };
-export type { PageFixtures } from './pages.fixture';
-export type { ApiFixtures } from './api.fixture';
-export type { DataFixtures } from './data.fixture';
-export type { AuthWorkerFixtures } from './auth.fixture';
+export { pagesFixture, type PageFixtures, type PageObjectClass } from './pages.fixture';
+export {
+  createApiFixture,
+  type ApiFixtures,
+  type ApiFixtureOptions,
+  type ApiClientClass,
+} from './api.fixture';
+export { createDataFixture, type DataFixtures } from './data.fixture';
+export { logFixture } from './log.fixture';

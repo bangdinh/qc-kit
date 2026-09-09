@@ -9,9 +9,11 @@
  *
  *   export default definePlaywrightConfig({ env: config });
  */
+import path from 'node:path';
 import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
 import type { ResolvedEnvironment } from './define-environments';
 import { envFlag, envNumber, isCI, loadDotEnv } from './env';
+import { hasSetupFile } from './find-setup';
 import { STORAGE_STATE } from './paths';
 
 type Projects = NonNullable<PlaywrightTestConfig['projects']>;
@@ -57,11 +59,25 @@ export interface PlaywrightPresetOptions {
   /** Turn the optional projects off for a product that has no API or no guest flows. */
   projects?: {
     /**
-     * Unit tests for the kit's own pure code (any `*.test.ts` under `src`). No browser, no
-     * credentials, no network — this is the project `npm run verify` runs, and the
-     * one a contributor can run on a laptop with nothing configured. Default: true.
+     * Unit tests: any `*.test.ts` under `./src`. No browser, no credentials, no network.
+     *
+     * **Default: false.** `./src` is the *caller's* src, so a consuming project that
+     * happened to have unit tests there would find them running under a Playwright
+     * project it never asked for. The kit turns it on for itself in its own config.
      */
     unit?: boolean;
+    /**
+     * Sign in once in a setup project and hand the session to the browser projects.
+     *
+     * Default: true — signing in per spec file is the failure this preset exists to
+     * prevent. Turn it off for a product with no login; the browser projects then start
+     * with a clean context and no `setup` dependency.
+     *
+     * With it on, the spec tree must contain a file matching `setupMatch`. It does not,
+     * the preset says so at config time rather than letting every test fail on a
+     * missing session file.
+     */
+    auth?: boolean;
     /** API specs, no browser. Default: true. */
     api?: boolean;
     /** Signed-out specs tagged `@guest` — login, registration, errors. Default: true. */
@@ -86,7 +102,17 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
     overrides,
   } = options;
 
-  const withUnit = options.projects?.unit ?? true;
+  const withUnit = options.projects?.unit ?? false;
+  const withAuth = options.projects?.auth ?? true;
+
+  if (withAuth && !hasSetupFile(path.resolve(testDir), setupMatch)) {
+    throw new Error(
+      `No setup file matching ${setupMatch} under "${testDir}", but the authenticated ` +
+        `projects expect a session at "${storageState}". Add one (see the kit's ` +
+        '`createAuthSetup`), or pass `projects: { auth: false }` for a product with no login.',
+    );
+  }
+
   const withApi = options.projects?.api ?? true;
   const withGuest = options.projects?.guest ?? true;
 
@@ -127,7 +153,7 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
       : []),
 
     /* 1. Logs in once and stores the session on disk. */
-    { name: 'setup', testMatch: setupMatch },
+    ...(withAuth ? [{ name: 'setup', testMatch: setupMatch }] : []),
 
     /* 2. API specs — no browser is launched. */
     ...(withApi
@@ -140,8 +166,8 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
       testDir,
       testMatch: specMatch,
       grepInvert: /@guest/,
-      use: { ...browserUse, storageState },
-      dependencies: ['setup'],
+      use: withAuth ? { ...browserUse, storageState } : { ...browserUse },
+      ...(withAuth ? { dependencies: ['setup'] } : {}),
     },
 
     /* 4. Anything that must start signed out (login, registration, errors). */

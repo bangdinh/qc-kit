@@ -29,6 +29,18 @@ locator của VMSmart.
 **Trong lúc chưa trả:** check luật 2 loại trừ đúng ba file này. Bất kỳ file **mới** nào
 nhắc `fcam.vn` / `vmsmart` đều bị chặn — đó là điều check này đang bảo vệ.
 
+**Cập nhật 2026-09-09 (RPA-4507):** ba file này **không còn nằm trong gói publish**.
+`tsconfig.build.json` loại `src/pages`, `src/data`, `src/components` và
+`src/config/environments.ts` khỏi `dist/`, và `src/fixtures` đã đổi thành factory không
+nhắc tên sản phẩm nào (phần compose chuyển sang `tests/fixtures.ts`). Kiểm được:
+
+```bash
+npm run build && grep -rniE "vmsmart|fcam\.vn" dist/ && echo "RÒ RỈ"
+```
+
+Nợ còn lại **nhỏ hơn hẳn**: ba file vẫn nằm trong repo phục vụ suite ví dụ. Trả nốt khi
+làm `cmd/scaffold`.
+
 ---
 
 ## 2. Hợp đồng chưa có kiểm tra lệch với bên sinh
