@@ -82,12 +82,13 @@ test.describe('assertProjectName', () => {
 });
 
 test.describe('skill nạp vào dự án', () => {
-  test('dự án nào cũng có CLAUDE.md và ba skill', () => {
+  test('dự án nào cũng có CLAUDE.md và bộ skill', () => {
     const dests = plan(base).map((f) => f.dest);
     for (const need of [
       'CLAUDE.md',
       '.claude/skills/qc-flow/SKILL.md',
       '.claude/skills/testcase-standard/SKILL.md',
+      '.claude/skills/testcase-to-spec/SKILL.md',
       '.claude/skills/jira/SKILL.md',
       '.claude/skills/jira/jira.sh',
     ]) {
@@ -130,6 +131,7 @@ test.describe('managedAssets — thứ `sync` được phép ghi đè', () => {
     expect(dests).toEqual([
       '.claude/skills/qc-flow/SKILL.md',
       '.claude/skills/testcase-standard/SKILL.md',
+      '.claude/skills/testcase-to-spec/SKILL.md',
       '.claude/skills/jira/SKILL.md',
       '.claude/skills/jira/jira.sh',
       '.jira.env.example',
