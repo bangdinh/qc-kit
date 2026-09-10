@@ -46,6 +46,10 @@ const MANAGED: PlannedFile[] = [
     template: 'claude/skills/testcase-standard/SKILL.md',
     dest: '.claude/skills/testcase-standard/SKILL.md',
   },
+  {
+    template: 'claude/skills/testcase-to-spec/SKILL.md',
+    dest: '.claude/skills/testcase-to-spec/SKILL.md',
+  },
   { template: 'claude/skills/jira/SKILL.md', dest: '.claude/skills/jira/SKILL.md' },
   { template: 'claude/skills/jira/jira.sh', dest: '.claude/skills/jira/jira.sh', raw: true },
   { template: 'jira.env.example', dest: '.jira.env.example', raw: true },

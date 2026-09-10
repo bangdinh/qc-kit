@@ -1,0 +1,160 @@
+---
+name: testcase-to-spec
+description: Sinh spec Playwright va page object tu file JSON test case (dau ra cua convertExcelToTestCases). Locator chua biet thi danh dau LOCATOR-TBD, tuyet doi khong bia. Kich hoat khi co file JSON test case can chuyen thanh code, khi nhac "generate test script", "sinh spec tu excel", "sinh test tu json", hoac khi hoi "case nay viet thanh code the nao".
+---
+
+# Sinh spec từ JSON test case — `__NAME__`
+
+Skill này do **qc-kit** phát hành. Đừng sửa tại chỗ — nó bị ghi đè ở lần
+`npx qc-kit sync` tiếp theo. Thấy sai thì sửa ở kit rồi nâng version.
+
+## Đầu vào
+
+File JSON do `convertExcelToTestCases()` sinh ra:
+
+```json
+{
+  "summary": { "total": 21 },
+  "test_cases": [
+    {
+      "test_case_id": "TB1.0",
+      "title": "Kiểm tra click nút \"+ Thêm thiết bị\"",
+      "preconditions": [],
+      "steps": [
+        { "no": 1, "screen": "add_device_menu", "action": "tap",
+          "target": "them_thiet_bi", "description": "Click nút \"+ Thêm thiết bị\"",
+          "expected": "Hiển thị menu Chọn phương thức thêm" }
+      ],
+      "test_data": {}, "priority": "High", "tags": ["@high"], "source": "requirement"
+    }
+  ]
+}
+```
+
+## Luật số một: `screen` và `target` KHÔNG phải locator
+
+`target: "them_thiet_bi"` là **tên tiếng Việt viết lại**, không phải selector. Nó nói
+*phần tử nào*, không nói *tìm nó bằng gì*.
+
+Vì vậy: **không bao giờ suy ra locator từ JSON.** Không `getByTestId('them-thiet-bi')`,
+không `getByText('Thêm thiết bị')`, không đoán theo nghĩa của từ. Một locator bịa trông y
+hệt locator thật cho tới lúc chạy — và lúc đó người đọc lỗi không biết nó bịa.
+
+Chưa biết locator thì viết đúng dạng này:
+
+```ts
+// LOCATOR-TBD: target "them_thiet_bi" (TB1.0 step 2) — lấy locator thật từ DOM, xem skill qc-flow
+readonly themThietBi = this.page.getByTestId('LOCATOR-TBD-them-thiet-bi');
+```
+
+Ba tính chất của marker này, cả ba đều cố ý:
+
+| | |
+|---|---|
+| **Grep được** | `grep -rn "LOCATOR-TBD" src/ tests/` ra đúng danh sách việc còn lại |
+| **Fail to** | selector đó không khớp gì; test đỏ với thông báo chứa `LOCATOR-TBD`, không đỏ mơ hồ |
+| **Truy được nguồn** | comment ghi rõ case nào, step nào cần nó |
+
+## Thứ tự làm
+
+**1. Đọc JSON, gom theo `screen`.** Mỗi `screen` distinct là một page object.
+
+**2. Với từng `screen`, kiểm `src/pages/` xem class đã tồn tại chưa.**
+Có rồi thì **thêm vào class đó**, đừng tạo class thứ hai cho cùng một màn hình.
+
+**3. Sinh page object.** Mỗi `target` distinct là một locator. Đã biết locator thật thì
+dùng; chưa biết thì `LOCATOR-TBD`. Mỗi `action` thành một method mô tả ý định, bọc
+`this.step(...)` — chuẩn ở skill `qc-flow`.
+
+**4. Sinh spec.** Một file cho mỗi nhóm `test_case_id` cùng tiền tố (`TB1.0`, `TB1.1` →
+`tests/ui/tb.spec.ts`). Giữ `test_case_id` trong tiêu đề test để truy ngược về Excel.
+
+**5. Đánh dấu case chưa chạy được.** Case có bất kỳ `LOCATOR-TBD` nào thì để
+`test.fixme()` kèm lý do. Nó hiện ra là "đã bỏ qua" trong report — nhìn thấy được, mà
+không nhuộm đỏ suite.
+
+**6. Báo cáo lại cho người:** bao nhiêu case sinh được, bao nhiêu `LOCATOR-TBD`, nằm ở
+đâu. Đừng nói "đã xong" khi còn TBD.
+
+## Ánh xạ step sang code
+
+`action` là một trong tám verb — bảng verb và verb nào Playwright không có tương đương
+nằm ở skill `testcase-standard`, đừng chép lại ở đây. Dùng `translateAction()` của kit
+khi cần tra bằng code.
+
+Hai verb `swipe` và `scroll` trả `custom: true`: **không có** lời gọi Playwright tương
+đương. Gặp chúng thì viết method rỗng kèm `// LOCATOR-TBD` — bịa một cử chỉ sẽ trông đúng
+và sai ở mọi lần chạy.
+
+`expected` của step cuối thành assertion. `expected` rỗng ở step giữa là bình thường —
+bước dẫn đường không có kết quả quan sát riêng.
+
+## Khi nào KHÔNG sinh
+
+| Tình huống trong JSON | Xử lý |
+|---|---|
+| `source: "inferred"` | Không đưa vào bộ chạy. Đây là giả định chưa ai xác nhận — luật ở `testcase-standard` |
+| `screen` rỗng | Không biết thuộc màn hình nào → **không tạo page object mới**, hỏi người |
+| `steps` rỗng | Không có gì để sinh, bỏ qua và báo lại |
+| `expected` của step cuối rỗng | Case không khẳng định điều gì → bỏ qua và báo lại |
+| `expected` kiểu "Theo design", "Đúng UI" | Kiểm thị giác, không phải assertion chức năng → `test.fixme` |
+
+## Ví dụ đầy đủ
+
+Từ case `TB1.0` ở trên, khi **chưa có** locator thật:
+
+```ts
+// src/pages/AddDeviceMenuPage.ts
+import { expect } from '@playwright/test';
+import { BasePage } from 'qc-kit/core';
+
+export class AddDeviceMenuPage extends BasePage {
+  protected override readonly path = '/';   // TODO: đường dẫn thật của màn hình
+
+  // LOCATOR-TBD: target "them_thiet_bi" (TB1.0 step 1) — lấy từ DOM thật, xem skill qc-flow
+  readonly themThietBi = this.page.getByTestId('LOCATOR-TBD-them-thiet-bi');
+
+  async themThietBiMoi(): Promise<void> {
+    await this.step('mở menu thêm thiết bị', async () => {
+      await this.clickWhenReady(this.themThietBi);
+    });
+  }
+}
+```
+
+```ts
+// tests/ui/tb.spec.ts
+import { expect, test } from '../../src/fixtures';
+import { AddDeviceMenuPage } from '../../src/pages/AddDeviceMenuPage';
+
+test.describe('Thêm thiết bị', () => {
+  // TB1.0 — còn 1 LOCATOR-TBD, chưa chạy được
+  test.fixme('TB1.0 Kiểm tra click nút "+ Thêm thiết bị"', async ({ createPage }) => {
+    const trang = createPage(AddDeviceMenuPage);
+    await trang.open();
+
+    await trang.themThietBiMoi();
+
+    await expect(trang.menuPhuongThuc).toBeVisible();
+  });
+});
+```
+
+## Sau khi sinh — việc của người, không phải của bạn
+
+```bash
+grep -rn "LOCATOR-TBD" src/ tests/     # danh sách phần tử cần locator thật
+npm run typecheck
+```
+
+Mỗi dòng grep ra là một lần mở app lấy locator thật theo skill `qc-flow`. Thay xong thì
+bỏ `test.fixme` của case tương ứng và chạy nó.
+
+## Không thuộc skill này
+
+| Việc | Thuộc về |
+|---|---|
+| Lấy locator từ DOM, thứ tự ưu tiên locator | skill `qc-flow` |
+| Một test case hợp lệ gồm gì, tám verb, `source` | skill `testcase-standard` |
+| Đọc file Excel, sinh ra JSON | `convertExcelToTestCases()` của qc-kit |
+| Nghĩ ra case mới | `platform-qc-agent` — **không phải** ở đây |
