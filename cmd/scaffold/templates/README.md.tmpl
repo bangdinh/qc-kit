@@ -21,6 +21,18 @@ npm run test:headed       # xem browser chạy thật
 npm run report            # HTML report của lần chạy gần nhất
 ```
 
+## Nâng cấp qc-kit
+
+Dự án này pin đúng một version của kit. Nâng cấp là đổi tag rồi cài lại:
+
+```bash
+npm i "github:bangdinh/qc-kit#<tag-mới>"   # xem tag ở trang tags của kit
+npm run typecheck && npx playwright test
+```
+
+Đọc CHANGELOG của kit trước khi nâng **minor** — pre-1.0 thì minor là chỗ mang thay đổi
+phá vỡ.
+
 ## Cấu trúc
 
 ```

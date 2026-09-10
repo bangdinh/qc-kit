@@ -1,5 +1,9 @@
 # qc-kit
 
+[![Latest Release](https://img.shields.io/badge/release-v0.2.0-blue)](https://github.com/bangdinh/qc-kit/tags)
+[![Node](https://img.shields.io/badge/node-20+-339933)](package.json)
+[![Playwright](https://img.shields.io/badge/playwright-peer%20optional-2EAD33)](package.json)
+
 Bộ kit QC **dùng chung** cho automation web · mobile · backend — mỗi dự án kế thừa thay
 vì copy khung. Xây trên [Playwright](https://playwright.dev) + TypeScript, mô hình Page
 Object kết hợp custom fixtures.
@@ -35,8 +39,17 @@ Không có `--auth` thì dự án sinh ra **chạy được ngay**, không cần
 
 Sinh ra: `package.json`, `tsconfig.json`, `playwright.config.ts` (một lời gọi preset),
 `.env.example`, `src/env.ts` (bảng môi trường của bạn), `src/fixtures.ts` (đã compose
-sẵn), một page object mẫu, một spec mẫu, `README.md`. Thêm `--auth` thì có `LoginPage`,
-`credentials`, `authenticators` và `tests/setup/auth.setup.ts`.
+sẵn), một page object mẫu, một spec mẫu, `README.md`, `CLAUDE.md`, và **ba skill** trong
+`.claude/skills/`. Thêm `--auth` thì có `LoginPage`, `credentials`, `authenticators` và
+`tests/setup/auth.setup.ts`.
+
+| Skill nạp vào dự án | Trả lời |
+|---|---|
+| `qc-flow` | Thêm một màn hình / một luồng / một spec thì làm gì, theo thứ tự nào |
+| `testcase-standard` | Một test case phải trông thế nào; tám verb; `source` và cổng duyệt |
+| `jira` | Ghi việc lên Jira; phân biệt bug sản phẩm với lỗi của bộ test |
+
+Chúng **do kit phát hành**, không phải của dự án — sửa tại chỗ sẽ mất ở lần `sync` sau.
 
 ### Dựng tay
 
@@ -76,6 +89,39 @@ export { expect };
 Kit không export sẵn một `test` đã compose vì làm vậy nó phải nêu tên bảng môi trường,
 tài khoản và page object của một sản phẩm — và mọi dự án cài về đều thừa kế sản phẩm của
 người khác.
+
+### Pin version, và nâng cấp
+
+Dự án client **pin đúng một version** — mô hình của `b2b-gokit`. Sửa gì ở kit thì client
+chỉ cần đổi số version, không phải copy lại gì.
+
+```jsonc
+// package.json của dự án client — kit CHƯA publish lên registry nên pin theo tag git
+"devDependencies": {
+  "qc-kit": "github:bangdinh/qc-kit#v0.2.0"
+}
+```
+
+Nâng cấp:
+
+```bash
+npm i "github:bangdinh/qc-kit#<tag-mới>"  # xem tag: github.com/bangdinh/qc-kit/tags
+npx qc-kit sync                            # refresh .claude/skills theo bản kit vừa cài
+npm run typecheck && npx playwright test  # nghiệm thu ngay: kit đổi API thì typecheck bắt
+```
+
+`sync` ghi đè **đúng** tập asset dùng chung (hiện là `.claude/skills/`) và không đụng
+`src/`, `tests/`, `package.json`, `README.md`, `CLAUDE.md` — thứ dự án sở hữu. Đó là điều
+thay cho việc copy tay `jira.sh` giữa các repo: một nguồn, một lệnh.
+
+`scaffold` tự điền dependency này theo **tag mới nhất** của kit lúc sinh dự án, nên dự án
+mới không phải sửa tay.
+
+Publish lên registry rồi thì đổi thành range bình thường (`"qc-kit": "^0.2.0"`) —
+`exports`, `files` và `prepare` đã sẵn sàng cho cả hai đường.
+
+> **Pre-1.0**: bump **minor** cho thay đổi phá vỡ, **patch** cho thay đổi tương thích
+> ngược. Đọc [CHANGELOG.md](CHANGELOG.md) trước khi nâng minor.
 
 ## 2. Kit gồm gì
 
@@ -178,6 +224,24 @@ browser, không cần credential, không cần mạng — chạy được trên 
 
 `make smoke` bắt lớp lỗi mà unit test không thấy: template không compile, `exports` map
 sai, preset dựng nhầm đồ thị project. Nó đã bắt được hai lỗi thật.
+
+### Cắt một release
+
+```bash
+make release VERSION=v0.2.0 DRY=1   # xem trước mục CHANGELOG, không đụng gì
+make release VERSION=v0.2.0         # verify → CHANGELOG → bump package.json → commit → tag
+git push origin master --tags
+```
+
+Script tự: chạy `make verify` (phát hành một bản không verify được là đẩy lỗi sang
+client), sinh mục CHANGELOG từ conventional commit trong `prev-tag..HEAD`, bump
+`package.json` cho **khớp tag** (đó là thứ npm phân giải), commit, rồi tạo annotated tag
+**mang luôn release notes**. Nó **không push** — đó là việc của bạn.
+
+Guard: phải ở `master`, cây làm việc sạch, tag chưa tồn tại.
+
+Vì client cài từ **git URL**, hook build phải là `prepare` chứ không phải `prepack` — npm
+chỉ chạy `prepare` khi cài từ git. Đổi nhầm thì client nhận một package không có `dist/`.
 
 ## 6. Cấu trúc
 

@@ -30,16 +30,51 @@ function loadCore() {
   }
 }
 
+/**
+ * Dependency spec mà dự án sinh ra dùng để cài kit.
+ *
+ * Chạy TỪ TRONG repo kit thì pin theo tag git — kit chưa publish lên registry, và đây
+ * đúng là mô hình go-kit: client pin một tag, nâng cấp bằng cách đổi tag.
+ * Chạy từ package đã cài thì trả về range `^x.y.z` (trường hợp đã có registry).
+ */
+function kitSpec(version) {
+  try {
+    // `git -C <path>` đi ngược lên cây thư mục, nên phải xác nhận ROOT CHÍNH LÀ gốc repo
+    // — nếu không, chạy từ node_modules sẽ bắt trúng repo của chính consumer.
+    const top = execSync(`git -C "${ROOT}" rev-parse --show-toplevel`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim();
+    if (path.resolve(top) !== path.resolve(ROOT)) throw new Error('không phải repo kit');
+
+    const url = execSync(`git -C "${ROOT}" remote get-url origin`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim();
+
+    let tag = `v${version}`;
+    try {
+      tag = execSync(`git -C "${ROOT}" describe --tags --abbrev=0`, {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString().trim() || tag;
+    } catch { /* chưa có tag nào — dùng version hiện tại */ }
+
+    const repo = url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
+    if (repo && url.includes('github.com')) return { spec: `github:${repo[1]}#${tag}`, tag };
+    const ssh = url.replace(/^git@([^:]+):/, 'ssh://git@$1/');
+    return { spec: `git+${ssh}#${tag}`, tag };
+  } catch {
+    return { spec: `^${version}`, tag: null };
+  }
+}
+
 function parseArgs(argv) {
   const [command, ...rest] = argv;
   if (command !== 'new') return null;
 
-  const opts = { name: '', out: '', auth: false, api: false, local: false };
+  const opts = { name: '', out: '', auth: false, api: false };
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i];
     if (arg === '--auth') opts.auth = true;
     else if (arg === '--api') opts.api = true;
-    else if (arg === '--local') opts.local = true;
     else if (arg === '--out') opts.out = rest[++i] ?? '';
     else if (arg.startsWith('--')) {
       console.error(`Tham số lạ: ${arg}`);
@@ -55,39 +90,25 @@ function usage() {
   console.log(`
 qc-kit — sinh dự án automation mới
 
-  npx qc-kit new <ten-du-an> [--out <thu-muc>] [--auth] [--api] [--local]
+  npx qc-kit new <ten-du-an> [--out <thu-muc>] [--auth] [--api]
+  npx qc-kit sync [thu-muc]
 
   <ten-du-an>   kebab-case; trở thành tên package npm
   --out         thư mục đích (mặc định: chính tên dự án)
   --auth        sinh luồng đăng nhập: setup project, credentials, LoginPage
   --api         sinh client API và spec API mẫu
-  --local       đóng gói kit này thành tarball và khai "file:" trỏ vào đó.
-                Bắt buộc khi kit CHƯA publish, nếu không npm install trả 404.
+
+  sync          ghi đè asset dùng chung (.claude/skills) theo bản kit đang cài.
+                Chạy sau mỗi lần nâng version kit. Không đụng code của dự án.
 
 Ví dụ:
-  npx qc-kit new kho-hang --auth --local
-  npx qc-kit new bo-test-api --out ../bo-test-api --api --local
+  npx qc-kit new kho-hang --auth
+  npx qc-kit new bo-test-api --out ../bo-test-api --api
+  npx qc-kit sync
 `);
 }
 
-/**
- * Đóng gói kit thành tarball và trả về đường dẫn.
- *
- * Phải là tarball chứ KHÔNG phải `file:` trỏ vào thư mục kit: npm symlink cả thư mục,
- * kéo theo `node_modules` của kit, và dự án nạp `@playwright/test` hai lần —
- * "Requiring @playwright/test second time", không test nào chạy được.
- */
-function packKit(root) {
-  // execSync với một chuỗi lệnh: `npm` trên Windows là npm.cmd nên cần shell, mà
-  // execFileSync + shell:true thì Node cảnh báo DEP0190. Không có tham số nào từ người
-  // dùng ghép vào chuỗi này.
-  const out = execSync('npm pack --silent', { cwd: root, encoding: 'utf-8' });
-  const file = out.trim().split(/\r?\n/).filter(Boolean).pop();
-  if (!file) throw new Error('npm pack không in ra tên tarball.');
-  return path.join(root, file);
-}
-
-function variables(opts, dependency, pwRange) {
+function variables(opts, kitSpecValue, pwRange) {
   const authImports = opts.auth
     ? "import { createAuthFixture } from 'qc-kit/core';\n" +
       "import { standardUser } from './data/authenticators';\n"
@@ -104,7 +125,7 @@ function variables(opts, dependency, pwRange) {
 
   return {
     NAME: opts.name,
-    QC_KIT_VERSION: dependency,
+    QC_KIT_VERSION: kitSpecValue,
     PW_RANGE: pwRange,
     AUTH: String(opts.auth),
     API: String(opts.api),
@@ -114,8 +135,65 @@ function variables(opts, dependency, pwRange) {
   };
 }
 
+/**
+ * Ghi một file template ra đích.
+ *
+ * `raw` copy nguyên văn: một shell script có `${VAR}` và cú pháp của riêng nó, cho qua
+ * render là hỏng — và nó cũng không có gì để thay.
+ */
+function writeOne(core, file, dest, vars) {
+  const source = path.join(TEMPLATES, `${file.template}.tmpl`);
+  if (!fs.existsSync(source)) {
+    console.error(`Thiếu template: ${source}`);
+    process.exit(1);
+  }
+  const out = path.join(dest, file.dest);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+
+  if (file.raw) {
+    fs.copyFileSync(source, out);
+    if (out.endsWith('.sh')) fs.chmodSync(out, 0o755);
+    return;
+  }
+  fs.writeFileSync(out, core.render.render(fs.readFileSync(source, 'utf-8'), vars));
+}
+
+/**
+ * `qc-kit sync [dir]` — ghi đè asset dùng chung trong một dự án ĐÃ TỒN TẠI, lấy từ bản
+ * kit đang cài. Nâng version kit rồi chạy lệnh này là có skill mới.
+ *
+ * Cố tình không đụng `src/`, `tests/`, `package.json`, `README.md`, `CLAUDE.md` — đó là
+ * thứ dự án sở hữu.
+ */
+function runSync(argv) {
+  const core = loadCore();
+  const dest = path.resolve(argv[0] || '.');
+
+  const pkgPath = path.join(dest, 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    console.error(`Không thấy package.json ở "${dest}" — đây có phải thư mục dự án không?`);
+    process.exit(1);
+  }
+  const name = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')).name || 'du-an';
+  const kitPkg = require(path.join(ROOT, 'package.json'));
+  const vars = { NAME: name };
+
+  const assets = core.plan.managedAssets();
+  console.log(`Đồng bộ asset dùng chung từ qc-kit ${kitPkg.version} → ${dest}`);
+  for (const file of assets) {
+    writeOne(core, file, dest, vars);
+    console.log(`  synced  ${file.dest}`);
+  }
+  console.log(
+    '\nXong. KHÔNG đụng src/, tests/, package.json, README.md, CLAUDE.md — thứ dự án sở hữu.',
+  );
+}
+
 function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'sync') return runSync(argv.slice(1));
+
+  const opts = parseArgs(argv);
   if (!opts) {
     usage();
     process.exit(process.argv.length > 2 ? 1 : 0);
@@ -134,38 +212,31 @@ function main() {
   }
 
   const dest = path.resolve(opts.out);
+
+  // Sinh vào TRONG repo kit là cái bẫy của `--out` mặc định (= tên dự án, tức thư mục
+  // hiện tại). Dự án con nằm trong repo kit sẽ bị `git add` nuốt vào kit.
+  if (dest === ROOT || dest.startsWith(ROOT + path.sep)) {
+    console.error(
+      `Không sinh dự án vào trong repo qc-kit ("${dest}").\n` +
+        `Dự án tiêu thụ phải nằm ngoài kit — nếu không nó sẽ bị commit vào kit.\n` +
+        `  Dùng: --out ../${opts.name}   (hoặc make new NAME=${opts.name} OUT=../${opts.name})`,
+    );
+    process.exit(1);
+  }
+
   if (fs.existsSync(dest) && fs.readdirSync(dest).length > 0) {
     console.error(`Thư mục "${dest}" đã có nội dung. Chọn --out khác, hoặc dọn nó trước.`);
     process.exit(1);
   }
 
-  // Chưa publish thì `^0.1.0` không phân giải được và npm trả 404 — `--local` đóng gói
-  // kit tại chỗ. Bỏ nhánh này đi khi kit đã lên registry.
-  let dependency = `^${kitPkg.version}`;
-  if (opts.local) {
-    try {
-      dependency = `file:${packKit(ROOT).replace(/\\/g, '/')}`;
-    } catch (e) {
-      console.error(`Không đóng gói được kit: ${e.message}`);
-      process.exit(1);
-    }
-  }
+  const kit = kitSpec(kitPkg.version);
+  const vars = variables(opts, kit.spec, pwRange);
 
-  const vars = variables(opts, dependency, pwRange);
-
-  for (const file of files) {
-    const source = path.join(TEMPLATES, `${file.template}.tmpl`);
-    if (!fs.existsSync(source)) {
-      console.error(`Thiếu template: ${source}`);
-      process.exit(1);
-    }
-    const out = path.join(dest, file.dest);
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, core.render.render(fs.readFileSync(source, 'utf-8'), vars));
-  }
+  for (const file of files) writeOne(core, file, dest, vars);
 
   console.log(`
 ✓ Đã sinh ${files.length} file vào ${dest}
+  qc-kit: ${vars.QC_KIT_VERSION}
 
   cd ${opts.out}
   npm install
@@ -173,13 +244,7 @@ function main() {
   cp .env.example .env        # điền URL${opts.auth ? ' và tài khoản' : ''}
   npm run typecheck
   npx playwright test
-${
-  opts.local
-    ? `\nqc-kit lấy từ tarball đã đóng gói. Sửa kit rồi thì đóng lại và cài lại:\n` +
-      `  cd ${ROOT} && npm pack && cd - && npm install\n`
-    : '\nqc-kit CHƯA publish lên registry: npm install sẽ trả 404.\n' +
-      'Sinh lại kèm --local (make new … LOCAL=1) để lấy kit từ tarball tại chỗ.\n'
-}${opts.auth ? '\nThay locator trong src/pages/LoginPage.ts bằng locator THẬT lấy từ DOM (npm run codegen).\n' : ''}`);
+${opts.auth ? '\nThay locator trong src/pages/LoginPage.ts bằng locator THẬT lấy từ DOM (npm run codegen).\n' : ''}`);
 }
 
 main();
