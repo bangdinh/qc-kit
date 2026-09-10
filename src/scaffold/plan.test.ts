@@ -34,10 +34,34 @@ test('--auth thêm setup, credentials và authenticator', () => {
   expect(dests).toContain('src/data/authenticators.ts');
 });
 
-test('--api thêm client và spec API', () => {
+test('--api dựng đủ tầng cho một bộ test API', () => {
   const dests = plan({ ...base, api: true }).map((f) => f.dest);
-  expect(dests).toContain('src/api/ExampleClient.ts');
-  expect(dests).toContain('tests/api/example.spec.ts');
+  for (const need of [
+    // client theo tài nguyên, không phải một file phẳng
+    'src/api/clients/ExampleClient.ts',
+    'src/api/clients/index.ts',
+    // Model: kiểu request/response của tài nguyên
+    'src/api/models/example.model.ts',
+    'src/api/models/index.ts',
+    // Helper: dựng request, đọc response
+    'src/api/helpers/ExampleRequestHelper.ts',
+    'src/api/helpers/ExampleResponseHelper.ts',
+    'src/api/helpers/index.ts',
+    // Verification: assert của tài nguyên, tách khỏi spec
+    'src/api/verifications/ExampleVerification.ts',
+    'src/api/verifications/index.ts',
+    // đường hạnh phúc và đường lỗi là hai spec khác nhau
+    'tests/api/example.spec.ts',
+    'tests/api/example.negative.spec.ts',
+  ]) {
+    expect(dests, `thiếu ${need}`).toContain(need);
+  }
+});
+
+test('không --api thì không sinh tầng API nào', () => {
+  const dests = plan(base).map((f) => f.dest);
+  expect(dests.some((d) => d.startsWith('src/api/'))).toBe(false);
+  expect(dests.some((d) => d.startsWith('tests/api/'))).toBe(false);
 });
 
 test('không có đích trùng nhau', () => {

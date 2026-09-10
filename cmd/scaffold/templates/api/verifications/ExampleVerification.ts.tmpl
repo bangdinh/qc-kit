@@ -1,0 +1,67 @@
+import { expect, type APIResponse } from '@playwright/test';
+import { step } from 'qc-kit/core';
+import { ExampleResponseHelper } from '../helpers';
+import type { CreateExample, Example, Page } from '../models';
+
+/**
+ * Assert thuộc về tài nguyên — tách khỏi spec.
+ *
+ * Ranh giới: "một bản ghi Example hợp lệ trông thế nào" là kiến thức của tài nguyên, và
+ * hai chục test đều cần nó. "Sau khi đổi giá thì đơn hàng phải sang trạng thái X" là
+ * kịch bản, thuộc về spec. Đưa nhầm loại thứ hai vào đây thì class này phình thành nơi
+ * chứa mọi logic test.
+ *
+ * Mỗi method bọc trong `step()` của kit, nên report hiện "Example: bản ghi hợp lệ" thay
+ * vì một dòng expect trần — bù lại đúng cái mất đi khi assert rời khỏi spec: nhìn report
+ * vẫn biết test đang khẳng định điều gì.
+ */
+export class ExampleVerification {
+  /** Hình dạng tối thiểu của một bản ghi server trả về. */
+  static isValidRecord(actual: Example): Promise<void> {
+    return step('Example: bản ghi hợp lệ', async () => {
+      expect(actual.id, 'server phải sinh id').toBeTruthy();
+      expect(actual.name, 'name không được rỗng').not.toBe('');
+      expect(actual.createdAt, 'server phải sinh createdAt').toBeTruthy();
+    });
+  }
+
+  /** Bản ghi trả về phải phản ánh đúng thứ vừa gửi lên. */
+  static matchesRequest(actual: Example, request: CreateExample): Promise<void> {
+    return step(`Example: khớp request "${request.name}"`, async () => {
+      expect(actual.name).toBe(request.name);
+    });
+  }
+
+  static containsRecord(page: Page<Example>, id: string): Promise<void> {
+    return step(`Example: danh sách có id ${id}`, async () => {
+      expect(ExampleResponseHelper.idsOf(page)).toContain(id);
+    });
+  }
+
+  static notContainsRecord(page: Page<Example>, id: string): Promise<void> {
+    return step(`Example: danh sách KHÔNG còn id ${id}`, async () => {
+      expect(ExampleResponseHelper.idsOf(page)).not.toContain(id);
+    });
+  }
+
+  /**
+   * API từ chối, và từ chối đúng lý do.
+   *
+   * `expectedMessage` là tuỳ chọn nhưng nên truyền: chỉ kiểm status thì một test âm vẫn
+   * xanh khi API trả 400 vì một nguyên nhân hoàn toàn khác — đó là loại test cho cảm
+   * giác an toàn giả.
+   */
+  static rejected(
+    response: APIResponse,
+    expectedStatus: number,
+    expectedMessage?: string | RegExp,
+  ): Promise<void> {
+    return step(`Example: bị từ chối với ${expectedStatus}`, async () => {
+      const message = await ExampleResponseHelper.errorMessage(response);
+      expect(response.status(), `body lỗi: ${message}`).toBe(expectedStatus);
+      if (expectedMessage !== undefined) {
+        expect(message).toMatch(expectedMessage);
+      }
+    });
+  }
+}

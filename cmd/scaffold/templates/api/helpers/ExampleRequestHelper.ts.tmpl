@@ -1,0 +1,52 @@
+import { unique } from 'qc-kit/utils';
+import type { CreateExample } from '../models';
+
+/**
+ * Dựng payload cho request — hợp lệ sẵn, override đúng trường mình quan tâm.
+ *
+ *   ExampleRequestHelper.create()                  // hợp lệ hoàn toàn
+ *   ExampleRequestHelper.create({ name: 'abc' })   // ghim một trường
+ *   ExampleRequestHelper.missingName()             // sai đúng MỘT chỗ, cho test âm
+ *
+ * Vì sao là một tầng riêng chứ không viết thẳng object trong spec: khi API thêm một
+ * trường bắt buộc, sửa một chỗ này là cả suite xanh lại. Viết thẳng thì phải đi sửa từng
+ * spec, và luôn sót.
+ *
+ * Method trả payload SAI để riêng ra và đặt tên theo cái sai (`missingName`,
+ * `emptyName`): đọc tên test âm là biết nó đang thử tình huống nào, không phải đọc vào
+ * body mới hiểu.
+ */
+export class ExampleRequestHelper {
+  static create(overrides: Partial<CreateExample> = {}): CreateExample {
+    return {
+      // `unique()` gắn timestamp + hậu tố ngẫu nhiên: các worker chạy song song không
+      // giẫm lên nhau, và bản ghi rác trên môi trường test truy được về lần chạy nào.
+      name: unique('qc-example'),
+      ...overrides,
+    };
+  }
+
+  static createMany(count: number, overrides: Partial<CreateExample> = {}): CreateExample[] {
+    return Array.from({ length: count }, () => ExampleRequestHelper.create(overrides));
+  }
+
+  static update(overrides: Partial<CreateExample> = {}): Partial<CreateExample> {
+    return { name: unique('qc-example-sua'), ...overrides };
+  }
+
+  // --- payload sai, dành cho test âm -------------------------------------
+  // Kiểu trả về là `unknown`: payload sai thì theo định nghĩa không khớp `CreateExample`,
+  // và ép nó khớp thì không viết được test âm nào.
+
+  static missingName(): unknown {
+    return {};
+  }
+
+  static emptyName(): unknown {
+    return ExampleRequestHelper.create({ name: '' });
+  }
+
+  static wrongType(): unknown {
+    return { name: 12345 };
+  }
+}
