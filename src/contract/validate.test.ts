@@ -11,9 +11,6 @@ function validCase(over: Partial<TestCase> = {}): TestCase {
     steps: [
       {
         no: 1,
-        screen: 'login',
-        action: 'input',
-        target: 'company_code_input',
         description: 'Nhập mã doanh nghiệp',
         expected: 'Ô nhập hiện đúng giá trị',
       },
@@ -43,6 +40,51 @@ test.describe('parseTestCaseResult — shape', () => {
   test('nhận chuỗi JSON', () => {
     const out = parseTestCaseResult(JSON.stringify(valid));
     expect(out.test_cases).toHaveLength(1);
+  });
+
+  /**
+   * Step KHÔNG còn field `target`. Case viết tay trong Excel không nêu phần tử ở một ô
+   * riêng, và suy nó ra từ câu chữ là đoán — hợp đồng bỏ hẳn field này thay vì giữ một
+   * field không producer nào điền được.
+   */
+  test('step không có target vẫn hợp lệ', () => {
+    const out = parseTestCaseResult(valid);
+    expect(out.test_cases[0].steps[0]).not.toHaveProperty('target');
+  });
+
+  /**
+   * Step rút về đúng ba field: `no`, `description`, `expected`. `screen` và `action` đi
+   * theo `target` vì cùng một lý do — case viết tay không có ô nào cho chúng.
+   */
+  test('step không có screen và action vẫn hợp lệ', () => {
+    const out = parseTestCaseResult(valid);
+    expect(Object.keys(out.test_cases[0].steps[0]).sort()).toEqual([
+      'description',
+      'expected',
+      'no',
+    ]);
+  });
+
+  test('field cũ thừa trong đầu vào thì bị bỏ qua, không làm hỏng case', () => {
+    const legacy = {
+      test_cases: [
+        {
+          ...validCase(),
+          steps: [
+            {
+              ...validCase().steps[0],
+              target: 'company_code_input',
+              screen: 'login',
+              action: 'input',
+            },
+          ],
+        },
+      ],
+    };
+    const out = parseTestCaseResult(legacy);
+    for (const field of ['target', 'screen', 'action']) {
+      expect(out.test_cases[0].steps[0], `còn sót ${field}`).not.toHaveProperty(field);
+    }
   });
 });
 
@@ -76,13 +118,6 @@ test.describe('parseTestCaseResult — dung thứ đóng gói, nghiêm với sch
 });
 
 test.describe('parseTestCaseResult — từ chối schema sai, kèm đường dẫn', () => {
-  test('verb lạ', () => {
-    const bad = {
-      test_cases: [validCase({ steps: [{ ...validCase().steps[0], action: 'click' }] as never })],
-    };
-    expect(() => parseTestCaseResult(bad)).toThrow(/test_cases\[0\]\.steps\[0\]\.action/);
-  });
-
   test('thiếu test_case_id', () => {
     const { test_case_id, ...rest } = validCase();
     expect(() => parseTestCaseResult({ test_cases: [rest] })).toThrow(

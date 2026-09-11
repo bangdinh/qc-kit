@@ -86,21 +86,20 @@ Agent trả về `TestCaseGenerationResult`, trong đó một step **đã là b�
 không còn là văn xuôi:
 
 ```json
-{ "no": 1, "screen": "livestream_setup", "action": "tap",
-  "target": "start_live_button", "description": "...", "expected": "..." }
+{ "no": 1, "description": "Bấm nút bắt đầu phát", "expected": "..." }
 ```
 
 Ba thuộc tính của schema đó ép ra ba thứ:
 
 | Schema có gì | qc-kit phải có gì |
 |---|---|
-| `action` là enum 8 verb (`tap · input · swipe · scroll · wait · verify · navigate · select`) | `translateAction()` — `tap→click`, `input→fill`, `verify→expect`, `navigate→goto`, `select→selectOption`, `wait→waitFor`. `swipe`/`scroll` khai rõ là **cần handler riêng** |
+| Step chỉ còn `no` + `description` + `expected` — văn xuôi, không enum verb | Bước sinh script đọc hành động ra từ `description`, và **nói ra** là mình đang phán đoán. Kit không còn bảng ánh xạ verb |
 | `source: requirement \| context \| inferred` + `assumptions[]` | `assertGrounded()` — case `inferred` là giả định chưa ai xác nhận, phải qua review |
 | Endpoint Dify đang dùng (`/v1/test-suite/generate`) **không** validate schema | `parseTestCaseResult()` — dung thứ đóng gói, nghiêm với schema, lỗi kèm đường dẫn JSON |
 
-⚠️ `target: start_live_button` chưa khớp format `data-testid` của kit
-(`livestream-start-live-btn`). `toTestId()` làm việc chuẩn hoá đó, và module prefix là một
-**heuristic** — override được khi tên màn hình không phải tên module.
+⚠️ Step **không** mang định danh phần tử. Agent có gửi kèm thì validator bỏ qua: phần tử
+thật chỉ xác định được từ DOM app đang chạy, không từ một chuỗi trong JSON. Xem
+[`ADR-0002`](docs/adr/0002-bo-target-khoi-hop-dong.md).
 
 ## 5. Luật vàng khi thêm code
 

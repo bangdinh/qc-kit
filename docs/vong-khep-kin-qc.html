@@ -445,11 +445,11 @@
 
     <div class="driver">
       <div class="from">
-        <h3><span class="m">action</span> là enum 8 verb</h3>
+        <h3>Step là văn xuôi, không enum</h3>
         <div class="note">
-          Một step không còn là văn xuôi:
-          <span class="m">{no, screen, action, target, description, expected}</span>.
-          Verb sai thì fail validation và kích hoạt retry, không lọt tới caller.
+          Một step gồm đúng ba field:
+          <span class="m">{no, description, expected}</span>.
+          Hành động, màn hình và phần tử đều quyết ở bước sinh script, đối chiếu DOM thật.
         </div>
       </div>
       <div class="arrow" aria-hidden="true">→</div>
@@ -461,7 +461,7 @@
           select → selectOption · wait → waitFor
         </div>
         <div class="flag">
-          <span class="m">target: start_live_button</span> chưa khớp format
+          <span class="m">step</span> không mang định danh phần tử; đó không phải format
           <span class="m">data-testid</span> của kit
           (<span class="m">livestream-start-live-btn</span>) — phải chốt một hàm chuẩn hoá.
         </div>
@@ -524,7 +524,7 @@
       <tbody>
         <tr>
           <td><span class="m">@qc/contract</span></td>
-          <td>JSON Schema test case · ánh xạ step → Playwright · chuẩn hoá <span class="m">target</span> → <span class="m">data-testid</span> · validate cửa vào</td>
+          <td>JSON Schema test case · ánh xạ step → Playwright · nhập case từ Excel · validate cửa vào</td>
           <td>mới</td>
           <td><span class="tag new">mới</span></td>
         </tr>
@@ -595,7 +595,7 @@
   </p>
   <ol class="steps">
     <li><div class="what"><b>Nâng prompt của agent bằng checklist đã có</b><span>Chuyển 10 nhóm case + luật 2 tầng + quy ước tag vào <span class="m">dify-system-prompt.md</span> và <span class="m">prompt_builder.py</span>. So output trước/sau trên cùng một requirement.</span></div><div class="who">agent</div></li>
-    <li><div class="what"><b>Chốt hợp đồng</b><span>Kit publish <span class="m">testcase.schema.json</span>; agent thêm CI check Pydantic khớp schema. Chốt luôn hàm chuẩn hoá <span class="m">target</span> → <span class="m">data-testid</span>.</span></div><div class="who">kit + agent</div></li>
+    <li><div class="what"><b>Chốt hợp đồng</b><span>Kit publish <span class="m">testcase.schema.json</span>; agent thêm CI check Pydantic khớp schema. Chốt luôn việc step không mang định danh phần tử.</span></div><div class="who">kit + agent</div></li>
     <li><div class="what"><b>Đóng đường memory thứ hai</b><span>Dify gọi qua service thay vì gọi thẳng <span class="m">get_context</span>, để preamble luôn được strip.</span></div><div class="who">Dify + agent</div></li>
     <li><div class="what"><b>Agent thêm output mode <span class="m">.feature</span></b><span>Gom N case cùng <span class="m">steps</span> thành một <span class="m">Scenario Outline</span>; mỗi <span class="m">test_data</span> là một dòng <span class="m">Examples</span>.</span></div><div class="who">agent</div></li>
     <li><div class="what"><b><span class="m">scripts/*.js</span> → <span class="m">@qc/testcase</span></b><span>web-first-automation xoá <span class="m">scripts/</span>, cài package, Excel ra <strong>y hệt</strong> bản cũ. Đây là phép thử của ranh giới.</span></div><div class="who">kit + wfa</div></li>

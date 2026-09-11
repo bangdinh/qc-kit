@@ -15,9 +15,7 @@ import { ContractError } from './errors';
 import {
   PRIORITIES,
   SOURCES,
-  STEP_ACTIONS,
   type Priority,
-  type StepAction,
   type TestCase,
   type TestCaseGenerationResult,
   type TestCaseSource,
@@ -155,9 +153,6 @@ function readStep(value: unknown, path: string): TestStep {
   const raw = readObject(value, path);
   return {
     no: readInteger(raw.no, `${path}.no`),
-    screen: readString(raw.screen, `${path}.screen`),
-    action: readEnum<StepAction>(raw.action, STEP_ACTIONS, `${path}.action`),
-    target: readString(raw.target, `${path}.target`),
     description: readString(raw.description, `${path}.description`),
     expected: readString(raw.expected, `${path}.expected`),
   };

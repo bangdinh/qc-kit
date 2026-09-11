@@ -28,28 +28,16 @@ pipeline báo cáo — nếu phải sửa, adapter đang làm sai.
 | Field | Bắt buộc | Luật |
 |---|---|---|
 | `no` | có | Số nguyên, bắt đầu từ 1 **trong từng case** |
-| `screen` | có | snake_case, định danh màn hình: `livestream_setup` |
-| `action` | có | Một trong 8 verb dưới đây, không có verb thứ 9 |
-| `target` | có | snake_case, định danh phần tử: `start_live_button` |
-| `description` | có | Tester làm gì |
+| `description` | có | Tester làm gì — **văn xuôi**, nguyên văn như người viết case |
 | `expected` | có | Kết quả **quan sát được** của riêng bước này |
 
-**Tám verb**, cố tình đóng: một step phải thực thi được, không phải văn xuôi.
+Ba field, hết. Step **không** mang hành động, màn hình hay phần tử: case viết tay trong
+Excel không có ô nào cho cả ba, và suy chúng ra từ câu chữ là đoán. Xem
+[`ADR-0003`](adr/0003-step-chi-con-van-xuoi.md).
 
-| Verb | Playwright | Ghi chú |
-|---|---|---|
-| `tap` | `click` | |
-| `input` | `fill` | |
-| `verify` | `expect` | |
-| `navigate` | `goto` | |
-| `select` | `selectOption` | |
-| `wait` | `waitFor` | |
-| `swipe` | — | **Cần handler riêng.** Playwright không có lời gọi tương đương |
-| `scroll` | — | **Cần handler riêng** |
-
-`translateAction()` trả `{ verb, custom }`. `custom: true` nghĩa là dự án phải tự cài cử
-chỉ. Đây là lựa chọn có chủ ý: bịa một ánh xạ cho `swipe` sẽ trông đúng và sai ở mọi dự
-án kế thừa.
+Hệ quả phải nhìn thẳng: hợp đồng **không còn tự kiểm được** một step có thực thi được hay
+không. Việc đó chuyển sang bước sinh script, nơi có DOM thật để đối chiếu — và nơi người
+đọc kết quả biết mình đang nhìn một phán đoán.
 
 ### `TestCase`
 
@@ -106,21 +94,18 @@ Vì sao kit phải validate khi bên sinh đã có schema: endpoint Dify thật 
 (`/testcases/generate`) bị tắt 503 khi provider là omni. Suite tới tay kit, ở đường phổ
 biến nhất, **chưa từng được ai kiểm**.
 
-## 5. `target` → `data-testid`
+## 5. Phần tử bị thao tác — hợp đồng KHÔNG mang
 
-`toTestId(screen, target)` đổi snake_case của generator sang format của kit
-`<module>-<field-hoặc-hành-động>-<loại-phần-tử>`:
+Một step nói *làm gì* và *ở màn nào*; nó không nói *phần tử nào*. Hợp đồng cố tình không
+có field cho phần tử, và đây là quyết định có ADR: [`0002`](adr/0002-bo-target-khoi-hop-dong.md).
 
-```
-toTestId('livestream_setup', 'start_live_button')  ->  'livestream-start-live-btn'
-toTestId('login',            'login_submit_button') ->  'login-submit-btn'   (không lặp prefix)
-```
+Lý do ngắn gọn: case viết tay trong Excel không có ô nào cho phần tử. Suy nó ra từ câu
+chữ của step là **đoán**, và một tên phần tử đoán sẽ thành một locator đoán — thứ trông y
+hệt locator thật cho tới lúc chạy.
 
-Module lấy từ **đoạn đầu** của `screen` — đây là **heuristic**, và là lý do `module`
-override được. Truyền tay bất cứ khi nào tên màn hình không phải tên module.
-
-Bảng viết tắt chỉ rút gọn vài từ dài hay lặp (`button→btn`, `dialog→modal`,
-`dropdown→select`); thứ không có trong bảng đi qua nguyên vẹn. Nó không phải allow-list.
+Phần tử thật được quyết ở nơi duy nhất biết sự thật: **DOM của app đang chạy**, tại bước
+sinh script (skill `gen-script`). Producer nào gửi kèm field thừa thì validator bỏ qua,
+không lỗi.
 
 ## 6. Giữ khớp với bên sinh
 

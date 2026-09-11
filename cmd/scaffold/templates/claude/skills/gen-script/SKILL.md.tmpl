@@ -12,18 +12,18 @@ Skill này do **qc-kit** phát hành. Đừng sửa tại chỗ — nó bị ghi
 
 | | Bước | Trạng thái |
 |---|---|---|
-| 1 | JSON test case → validate, gom theo màn hình | tự động |
+| 1 | JSON test case → đọc, đếm case | tự động |
 | 2 | → **draft script** (page object + spec, lỗ locator đánh dấu) | tự động |
-| 3 | → **tìm locator thật** từ DOM | **làm tay** — chưa có giải pháp tự động |
+| 3 | → **tìm locator thật**: page object có sẵn trước, DOM sau | 3a tự động · 3b **làm tay** |
 | 4 | → cập nhật locator vào script, bỏ `fixme` | tự động |
 | 5 | → chạy verify | tự động |
 
-Bước 3 là chỗ duy nhất bắt buộc có người. Đừng cố nhảy qua nó bằng cách đoán — lý do ở
-mục dưới.
+Bước **3b** là chỗ duy nhất bắt buộc có người — và chỉ khi 3a không tìm thấy sẵn. Đừng cố
+nhảy qua nó bằng cách đoán; lý do ở mục dưới.
 
 ---
 
-## Bước 1 — Đọc và validate JSON
+## Bước 1 — Đọc JSON
 
 Đầu vào là file do `convertExcelToTestCases()` của kit sinh ra:
 
@@ -36,8 +36,7 @@ mục dưới.
       "title": "Kiểm tra click nút \"+ Thêm thiết bị\"",
       "preconditions": [],
       "steps": [
-        { "no": 1, "screen": "add_device_menu", "action": "tap",
-          "target": "them_thiet_bi", "description": "Click nút \"+ Thêm thiết bị\"",
+        { "no": 1, "description": "Click nút \"+ Thêm thiết bị\"",
           "expected": "Hiển thị menu Chọn phương thức thêm" }
       ],
       "test_data": {}, "priority": "High", "tags": ["@high"], "source": "requirement"
@@ -46,36 +45,48 @@ mục dưới.
 }
 ```
 
-**Cho qua hợp đồng của kit trước khi sinh một dòng nào.** Đừng tự kiểm field bằng mắt:
+**Đọc thẳng, KHÔNG validate.** File này là đầu ra của một hàm convert, không phải thứ
+người gõ tay — hình dạng của nó là việc của hàm đó, và logic convert còn đổi. Dựng một
+cổng schema ở đây chỉ tạo ra chỗ thứ hai phải sửa mỗi lần đầu vào đổi, và nó sẽ chặn cả
+những file hoàn toàn dùng được.
 
-```ts
-import { assertGrounded, parseTestCaseResult } from 'qc-kit/contract';
+Việc của bước này đúng hai dòng: đọc file, và **báo có bao nhiêu test case**.
 
-const suite = parseTestCaseResult(raw);  // sai schema → lỗi kèm đường dẫn JSON chính xác
-assertGrounded(suite);                   // chặn case `inferred` không khai assumptions
+```
+Đọc testcase/Device_Management_TestCase_v1.0.0.json — 21 test case
 ```
 
-`parseTestCaseResult` dung thứ đóng gói (markdown fence, lời dẫn quanh JSON) nhưng nghiêm
-với schema — thiếu field hay verb lạ thì từ chối, kèm đường dẫn kiểu
-`test_cases[0].steps[2].action`. Báo nguyên văn đường dẫn đó cho người, đừng diễn giải lại.
+Nếu file không đọc/parse được (sai cú pháp JSON, không thấy đường dẫn) thì dừng và nói rõ
+lỗi. Đó là hỏng thật, không phải chuyện schema.
 
-Rồi **gom `test_cases` theo `screen`**: mỗi `screen` distinct là một page object.
+Rồi **gom case theo màn hình**. Hợp đồng không còn field `screen`, nên việc gom dựa vào
+`title`, `preconditions` và câu chữ của step — tức là một **phán đoán**, không phải một
+khoá có sẵn. Gom sai thì sinh ra hai class cho cùng một màn hình.
+
+Vì vậy: gom xong thì **nói ra cách gom** trước khi sinh, và màn hình nào không chắc thì
+hỏi người thay vì tự tạo class mới.
+
+Field nào thiếu hay trống thì xử lý ở bước 2 theo bảng **Khi nào KHÔNG sinh** — bỏ đúng
+case đó và báo lại, thay vì để cả file trượt vì một case hỏng.
 
 ## Bước 2 — Sinh draft script
 
-### Luật số một: `screen` và `target` KHÔNG phải locator
+### Luật số một: JSON KHÔNG nói phần tử nào
 
-`target: "them_thiet_bi"` là **tên tiếng Việt viết lại**, không phải selector. Nó nói
-*phần tử nào*, không nói *tìm nó bằng gì*.
+Một step chỉ có **một câu `description`**. Hợp đồng không có field cho hành động, cho màn
+hình, cho phần tử — xem `ADR-0002` và `ADR-0003` của kit. Tất cả những gì bạn có là câu
+tiếng Việt do người viết case gõ ra.
 
 Vì vậy: **không bao giờ suy ra locator từ JSON.** Không `getByTestId('them-thiet-bi')`,
-không `getByText('Thêm thiết bị')`, không đoán theo nghĩa của từ. Một locator bịa trông y
-hệt locator thật cho tới lúc chạy — và lúc đó người đọc lỗi không biết nó bịa.
+không `getByText('Thêm thiết bị')`, không đoán theo nghĩa của từ trong `description`. Một
+locator bịa trông y hệt locator thật cho tới lúc chạy — và lúc đó người đọc lỗi không biết
+nó bịa.
 
-Chưa biết locator thì viết đúng dạng này:
+Đặt **tên field** theo `description` thì được — đó là đặt tên, không phải định vị. Còn giá
+trị của locator thì để trống có đánh dấu:
 
 ```ts
-// LOCATOR-TBD: target "them_thiet_bi" (TB1.0 step 1) — lấy locator thật từ DOM, xem bước 3
+// LOCATOR-TBD: "+ Thêm thiết bị" (TB1.0 step 1) — lấy locator thật từ DOM, xem bước 3
 readonly themThietBi = this.page.getByTestId('LOCATOR-TBD-them-thiet-bi');
 ```
 
@@ -117,7 +128,7 @@ export class StockPage extends BasePage {
 }
 ```
 
-- Locator là **field readonly**, khai ở đầu class. Mỗi `target` distinct một locator.
+- Locator là **field readonly**, khai ở đầu class. Mỗi phần tử distinct một locator.
 - Method mô tả **ý định** (`timKiem`), không phải thao tác (`clickNutTim`).
 - **Mọi method public bọc trong `this.step(...)`.** Đây là thứ giữ cho một lần fail còn
   đọc được khi suite đã lớn — report hiện `StockPage: tìm mã hàng "SKU-001"` thay vì một
@@ -155,13 +166,66 @@ thì `createPage(StockPage)` là đủ, đừng đẻ fixture.
 
 ### Ánh xạ step sang code
 
-`action` là một trong tám verb — bảng verb và verb nào Playwright không có tương đương nằm
-ở skill `testcase-standard`, đừng chép lại ở đây. Cần tra bằng code thì dùng
-`translateAction()` của kit.
+Hành động phải **đọc ra từ `description`**. Hợp đồng không mang verb nữa, nên không có
+bảng tra và không có `translateAction()` — chính chỗ này là nơi phán đoán xảy ra, và nó
+phải hiện ra cho người đọc chứ không lặng lẽ.
 
-Hai verb `swipe` và `scroll` trả `custom: true`: **không có** lời gọi Playwright tương
-đương. Gặp chúng thì viết method rỗng kèm `// LOCATOR-TBD` — bịa một cử chỉ sẽ trông đúng
-và sai ở mọi lần chạy.
+Quy tắc: mỗi step sinh ra **một** lời gọi method của page object, và giữ nguyên văn
+`description` trong comment ngay trên nó. Người review đối chiếu được câu gốc với dòng
+code mà không phải mở Excel.
+
+```ts
+// step 4 — "Click nút \"+ Thêm thiết bị\" ở góc trên bên phải"
+await trang.moMenuThemThietBi();
+```
+
+Câu nào **không đọc ra được một hành động** (mơ hồ, mô tả trạng thái, hai việc trong một
+dòng) thì đừng đoán: bỏ case đó và báo lại, theo bảng dưới.
+
+Cử chỉ như vuốt/cuộn thì Playwright không có lời gọi thẳng. Gặp câu mô tả chúng thì viết
+method rỗng kèm `// LOCATOR-TBD` — bịa một cử chỉ sẽ trông đúng và sai ở mọi lần chạy.
+
+#### Động từ **một mình** không quyết được lời gọi — đối tượng mới quyết
+
+"Chọn vào button A" và "Chọn giá trị B trong dropdown" cùng một động từ, nhưng người
+dùng thật làm hai việc khác nhau: một cú bấm, so với mở một menu rồi bấm vào một dòng
+trong đó. Sinh cùng một `click` cho cả hai là sai ở trường hợp thứ hai.
+
+Đọc **động từ + đối tượng**, rồi hỏi: *người dùng thật sự làm gì bằng chuột và bàn phím?*
+
+| Câu trong `description` | Người dùng làm gì | Playwright |
+|---|---|---|
+| Chọn / Click / Bấm / Nhấn / Chạm **một button, link, tab, dòng menu** | một cú bấm | `click()` |
+| Chọn **một giá trị trong dropdown** | bấm mở trigger → bấm dòng option | hai `click()`, **không** `selectOption()` trừ khi đó là `<select>` thật |
+| Tick / Bỏ tick / Chọn **một checkbox hay radio** | bật/tắt một ô | `check()` / `uncheck()` — idempotent, không `click()` |
+| Nhập / Điền / Gõ / Dán **vào một ô** | gõ vào ô | `fill()` |
+| Chọn / Tải lên **một file** | mở hộp thoại file rồi chọn | `setInputFiles()` |
+| Chọn **một ngày** | mở picker → gõ hoặc bấm ô ngày | `fill()` vào input của picker, hoặc `click()` ô ngày |
+| Di chuột / Hover **lên một phần tử** | rê chuột, chưa bấm | `hover()` |
+| Kiểm tra / Quan sát / Xác nhận / Đảm bảo | **không đụng gì cả**, chỉ nhìn | `expect(...)` |
+| Chờ / Đợi | không ngồi đếm giây, mà chờ thấy thứ mình cần | web-first assertion. **Không bao giờ** `waitForTimeout()` |
+
+#### Bốn luật rút từ hành vi thật
+
+**1. Điều hướng trong app là bấm, không phải `goto`.**
+Người dùng không gõ URL để sang tab khác — họ bấm vào menu. Chỉ **điểm vào** của case mới
+dùng `open()`; mọi bước đi tiếp bên trong app là `click()` qua page object. Dùng `goto`
+cho bước giữa chừng sẽ cho test xanh trên một màn hình mà người dùng thật không tới được
+theo đường đó.
+
+**2. "Kiểm tra" không được đổi trạng thái.**
+Câu "Kiểm tra button X clickable" là một assertion, không phải một cú bấm. Bấm nó là làm
+hỏng đúng thứ đang muốn kiểm — và bước sau sẽ chạy trên một màn hình khác.
+
+**3. Một câu, một hành động.**
+"Chọn Phân quyền rồi Nhóm & Nhân viên" là **hai** cú bấm. Hoặc tách thành hai lời gọi,
+hoặc gộp vào **một** method mô tả ý định (`moNhomVaNhanVien()`) rồi gọi một lần. Đừng nhét
+hai `click` trần vào spec.
+
+**4. Đối tượng chưa rõ là loại gì thì để `LOCATOR-TBD`, đừng đoán loại.**
+"Chọn Phân quyền" — tab? link? dòng menu? Ba thứ đó ra ba lời gọi khác nhau. Chưa mở app
+thì chưa biết, và bước 3 chính là chỗ trả lời. Viết `LOCATOR-TBD` cho locator, chọn
+`click()` làm mặc định, và ghi trong comment rằng loại phần tử chưa xác minh.
 
 `expected` của step cuối thành assertion. `expected` rỗng ở step giữa là bình thường —
 bước dẫn đường không có kết quả quan sát riêng. Chuỗi step chỉ điều hướng ở đầu case là
@@ -174,24 +238,60 @@ suite.
 
 ### Khi nào KHÔNG sinh
 
+Bước 1 không validate, nên bảng này là chỗ **duy nhất** chặn case hỏng. Chặn từng case,
+không chặn cả file.
+
 | Tình huống trong JSON | Xử lý |
 |---|---|
 | `source: "inferred"` | Không đưa vào bộ chạy. Giả định chưa ai xác nhận — luật ở `testcase-standard` |
-| `screen` rỗng | Không biết thuộc màn hình nào → **không tạo page object mới**, hỏi người |
+| `description` không đọc ra hành động nào | Mơ hồ, mô tả trạng thái, hoặc hai việc trong một dòng → bỏ case, trích nguyên văn câu đó |
+| Không biết case thuộc màn hình nào | **Không tạo page object mới**, hỏi người |
 | `steps` rỗng | Không có gì để sinh, bỏ qua và báo lại |
 | `expected` của step cuối rỗng | Case không khẳng định điều gì → bỏ qua và báo lại |
 | `expected` kiểu "Theo design", "Đúng UI" | Kiểm thị giác, không phải assertion chức năng → `test.fixme` |
 
 ### Báo cáo trước khi dừng
 
-Bao nhiêu case sinh được, bao nhiêu `LOCATOR-TBD` và nằm ở đâu, case nào bị bỏ vì lý do
-gì trong bảng trên. **Đừng nói "đã xong" khi còn TBD** — draft chưa phải script chạy được.
+Sinh được bao nhiêu case **trên tổng số đọc được ở bước 1**, bao nhiêu `LOCATOR-TBD` và
+nằm ở đâu, case nào bị bỏ vì lý do gì trong bảng trên. Hai con số đó phải khớp nhau: mỗi
+case không sinh đều có một dòng lý do. **Đừng nói "đã xong" khi còn TBD** — draft chưa
+phải script chạy được.
 
 ---
 
-## Bước 3 — Tìm locator thật *(làm tay)*
+## Bước 3 — Tìm locator thật
 
-Chưa có giải pháp tự động cho bước này. Hôm nay: mở app thật, đọc DOM, ghi lại locator.
+Hai nguồn, **theo đúng thứ tự này**. Đảo thứ tự là tự tạo ra locator trùng.
+
+### 3a. Tìm trong page object đã có — làm trước, tự động
+
+Màn hình này rất có thể đã được implement một phần: một case trước đó đã mở app, đã lấy
+locator thật, và đã ghi vào class. Lấy lại chúng.
+
+```bash
+# class của màn hình đang làm, và mọi component nó dùng
+cat src/pages/<khu vực>/<TênMànHình>.ts
+grep -rnE "readonly |async " src/pages/<khu vực>/ src/components/
+```
+
+Với **từng** `LOCATOR-TBD` bước 2 vừa sinh, hỏi ba câu theo thứ tự:
+
+| | Nếu có |
+|---|---|
+| Class đã có **method** làm đúng việc này chưa? | Gọi method đó. Không thêm locator nào |
+| Class đã có **locator** trỏ đúng phần tử này chưa? | Dùng lại field đó, xoá `LOCATOR-TBD` |
+| **Component** dùng chung (header, dialog, bảng) đã có chưa? | Dùng qua component, đừng khai lại ở page |
+
+Khớp theo **phần tử thật**, không theo tên. `themThietBi` và `nutThemThietBi` là một thứ;
+khai cả hai thì hôm Dev đổi UI sẽ sửa một cái và quên cái kia. Ngược lại, hai nút cùng tên
+"Xoá" ở hai chỗ khác nhau là **hai** locator — trùng tên không phải trùng phần tử.
+
+Dùng lại được thì ghi rõ trong báo cáo: locator nào lấy từ class có sẵn, locator nào phải
+đi lấy mới. Đó là thước đo page object đang lớn lên hay đang bị chép lại.
+
+### 3b. Chưa có thì mở app thật — làm tay
+
+Chưa có giải pháp tự động cho phần này. Mở app thật, đọc DOM, ghi lại locator.
 
 ```bash
 npx playwright codegen <url của màn hình>
@@ -200,6 +300,10 @@ npm run codegen                        # nếu dự án đã khai script này
 
 Đăng nhập rồi mới thấy màn hình thì dùng lại session của project `setup`
 (`playwright/.auth/user.json`) thay vì đăng nhập lại bằng tay.
+
+Chưa mở app được — không có quyền, môi trường sập, chưa ai build màn hình đó — thì **giữ
+`LOCATOR-TBD` như cũ** và để case ở `test.fixme`. Đó là trạng thái hợp lệ, không phải
+thất bại: draft vẫn grep ra được, và không có locator bịa nào lọt vào.
 
 ### Thứ tự ưu tiên locator
 
@@ -214,8 +318,9 @@ npm run codegen                        # nếu dự án đã khai script này
 Dùng bất kỳ mức nào từ 2–5: ghi comment `TẠM THỜI` ngay tại chỗ, nêu `data-testid` nào
 đang chờ Dev. Đổi lại sau không phải sửa spec, vì spec chỉ gọi method của page object.
 
-`toTestId(screen, target)` của kit cho ra tên `data-testid` **mong muốn** theo quy ước —
-dùng nó khi lập phiếu gửi Dev, đừng dùng nó như thể testid đó đã tồn tại.
+Lập phiếu gửi Dev thì tự đặt tên testid theo quy ước của dự án
+(`<module>-<việc>-<loại phần tử>`, ví dụ `device-them-thiet-bi`). Kit **không** còn hàm
+sinh tên này — nó từng suy từ `target`, mà `target` đã bị bỏ khỏi hợp đồng.
 
 ## Bước 4 — Cập nhật locator vào script
 
@@ -226,14 +331,13 @@ grep -rn "LOCATOR-TBD" src/ tests/     # danh sách phần tử cần locator th
 Mỗi dòng grep ra là một lần thay. Thay xong locator của một case thì bỏ `test.fixme` của
 chính case đó — đừng bỏ hàng loạt.
 
-## Bước 5 — Verify
+## Bước 5 — Verify syntax
 
 ```bash
 npm run typecheck
-npx playwright test tests/ui/<file>.spec.ts
 ```
 
-Chạy thật rồi mới báo xong. Test xanh vì `fixme` không phải test xanh.
+Kiểm tra syntax 
 
 ---
 
@@ -251,7 +355,7 @@ Chạy thật rồi mới báo xong. Test xanh vì `fixme` không phải test xa
 
 | Việc | Thuộc về |
 |---|---|
-| Một test case hợp lệ gồm gì, tám verb, `source` | skill `testcase-standard` |
+| Một test case hợp lệ gồm gì, `source`, cách viết `description` | skill `testcase-standard` |
 | Đọc file Excel, sinh ra JSON | `convertExcelToTestCases()` của qc-kit |
 | Nghĩ ra case mới | `platform-qc-agent` — **không phải** ở đây |
 | Base class, fixture, helper dùng được cho **mọi** sản phẩm | **qc-kit** — đề xuất ở đó, nâng version |
