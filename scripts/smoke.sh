@@ -55,7 +55,7 @@ npm run typecheck --silent
 echo "  typecheck OK"
 
 # --- skill nạp vào dự án, và `sync` refresh được chúng ---
-for sk in qc-flow testcase-standard jira; do
+for sk in gen-script testcase-standard jira; do
   [ -f ".claude/skills/$sk/SKILL.md" ] || { echo "✗ thiếu skill $sk"; exit 1; }
 done
 [ -x ".claude/skills/jira/jira.sh" ] || { echo "✗ jira.sh không có quyền chạy"; exit 1; }
@@ -70,9 +70,9 @@ git check-ignore -q .jira.env.example && { echo "✗ .gitignore chặn nhầm .j
 rm -rf .git
 echo "  3 skill có mặt, jira.sh chạy được, .jira.env bị chặn, không còn placeholder"
 
-echo "RAC-SMOKE" >> .claude/skills/qc-flow/SKILL.md
+echo "RAC-SMOKE" >> .claude/skills/gen-script/SKILL.md
 node "$ROOT/cmd/scaffold/index.js" sync >/dev/null
-grep -q "RAC-SMOKE" .claude/skills/qc-flow/SKILL.md && { echo "✗ sync không ghi đè lại skill"; exit 1; }
+grep -q "RAC-SMOKE" .claude/skills/gen-script/SKILL.md && { echo "✗ sync không ghi đè lại skill"; exit 1; }
 echo "  sync ghi đè lại skill đã bị sửa"
 
 mkdir -p app

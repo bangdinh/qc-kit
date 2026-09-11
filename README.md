@@ -45,7 +45,7 @@ sẵn), một page object mẫu, một spec mẫu, `README.md`, `CLAUDE.md`, và
 
 | Skill nạp vào dự án | Trả lời |
 |---|---|
-| `qc-flow` | Thêm một màn hình / một luồng / một spec thì làm gì, theo thứ tự nào |
+| `gen-script` | Sinh test script: JSON test case → draft → locator thật → chạy verify |
 | `testcase-standard` | Một test case phải trông thế nào; tám verb; `source` và cổng duyệt |
 | `jira` | Ghi việc lên Jira; phân biệt bug sản phẩm với lỗi của bộ test |
 

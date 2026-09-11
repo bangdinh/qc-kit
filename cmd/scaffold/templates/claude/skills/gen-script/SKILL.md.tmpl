@@ -1,0 +1,258 @@
+---
+name: gen-script
+description: Sinh test script Playwright cho bo test nay - tu JSON test case ra draft script, tim locator that tu DOM, cap nhat vao script, roi chay verify. Gom ca chuan viet page object va spec, thu tu uu tien locator, va cai gi KHONG thuoc repo nay ma thuoc qc-kit. Kich hoat khi user go "Tao script", "Gen script", "/gen-script", khi co file JSON test case can chuyen thanh code, khi them page object hoac spec moi, khi hoi "them man hinh nay the nao" hoac "case nay viet thanh code the nao".
+---
+
+# Sinh test script — `__NAME__`
+
+Skill này do **qc-kit** phát hành. Đừng sửa tại chỗ — nó bị ghi đè ở lần
+`npx qc-kit sync` tiếp theo. Thấy sai thì sửa ở kit rồi nâng version.
+
+## Đường ống — năm bước, không đảo
+
+| | Bước | Trạng thái |
+|---|---|---|
+| 1 | JSON test case → validate, gom theo màn hình | tự động |
+| 2 | → **draft script** (page object + spec, lỗ locator đánh dấu) | tự động |
+| 3 | → **tìm locator thật** từ DOM | **làm tay** — chưa có giải pháp tự động |
+| 4 | → cập nhật locator vào script, bỏ `fixme` | tự động |
+| 5 | → chạy verify | tự động |
+
+Bước 3 là chỗ duy nhất bắt buộc có người. Đừng cố nhảy qua nó bằng cách đoán — lý do ở
+mục dưới.
+
+---
+
+## Bước 1 — Đọc và validate JSON
+
+Đầu vào là file do `convertExcelToTestCases()` của kit sinh ra:
+
+```json
+{
+  "summary": { "total": 21 },
+  "test_cases": [
+    {
+      "test_case_id": "TB1.0",
+      "title": "Kiểm tra click nút \"+ Thêm thiết bị\"",
+      "preconditions": [],
+      "steps": [
+        { "no": 1, "screen": "add_device_menu", "action": "tap",
+          "target": "them_thiet_bi", "description": "Click nút \"+ Thêm thiết bị\"",
+          "expected": "Hiển thị menu Chọn phương thức thêm" }
+      ],
+      "test_data": {}, "priority": "High", "tags": ["@high"], "source": "requirement"
+    }
+  ]
+}
+```
+
+**Cho qua hợp đồng của kit trước khi sinh một dòng nào.** Đừng tự kiểm field bằng mắt:
+
+```ts
+import { assertGrounded, parseTestCaseResult } from 'qc-kit/contract';
+
+const suite = parseTestCaseResult(raw);  // sai schema → lỗi kèm đường dẫn JSON chính xác
+assertGrounded(suite);                   // chặn case `inferred` không khai assumptions
+```
+
+`parseTestCaseResult` dung thứ đóng gói (markdown fence, lời dẫn quanh JSON) nhưng nghiêm
+với schema — thiếu field hay verb lạ thì từ chối, kèm đường dẫn kiểu
+`test_cases[0].steps[2].action`. Báo nguyên văn đường dẫn đó cho người, đừng diễn giải lại.
+
+Rồi **gom `test_cases` theo `screen`**: mỗi `screen` distinct là một page object.
+
+## Bước 2 — Sinh draft script
+
+### Luật số một: `screen` và `target` KHÔNG phải locator
+
+`target: "them_thiet_bi"` là **tên tiếng Việt viết lại**, không phải selector. Nó nói
+*phần tử nào*, không nói *tìm nó bằng gì*.
+
+Vì vậy: **không bao giờ suy ra locator từ JSON.** Không `getByTestId('them-thiet-bi')`,
+không `getByText('Thêm thiết bị')`, không đoán theo nghĩa của từ. Một locator bịa trông y
+hệt locator thật cho tới lúc chạy — và lúc đó người đọc lỗi không biết nó bịa.
+
+Chưa biết locator thì viết đúng dạng này:
+
+```ts
+// LOCATOR-TBD: target "them_thiet_bi" (TB1.0 step 1) — lấy locator thật từ DOM, xem bước 3
+readonly themThietBi = this.page.getByTestId('LOCATOR-TBD-them-thiet-bi');
+```
+
+Ba tính chất của marker, cả ba đều cố ý:
+
+| | |
+|---|---|
+| **Grep được** | `grep -rn "LOCATOR-TBD" src/ tests/` ra đúng danh sách việc còn lại |
+| **Fail to** | selector không khớp gì; test đỏ với thông báo chứa `LOCATOR-TBD`, không đỏ mơ hồ |
+| **Truy được nguồn** | comment ghi rõ case nào, step nào cần nó |
+
+### Page object
+
+Một màn hình một class dưới `src/pages/`, kế thừa `BasePage` của kit. Dự án chia
+`src/pages/` theo khu vực thì **giữ đúng cách chia đang có**, đừng dựng cách đặt tên mới.
+
+Trước khi tạo class: **kiểm `src/pages/` xem màn hình đó đã có class chưa.** Có rồi thì
+thêm vào class đó, đừng tạo class thứ hai cho cùng một màn hình.
+
+```ts
+import { expect } from '@playwright/test';
+import { BasePage } from 'qc-kit/core';
+
+export class StockPage extends BasePage {
+  protected override readonly path = '/stock';
+
+  readonly heading = this.page.getByTestId('stock-page-heading');
+  readonly search = this.page.getByTestId('stock-search-input');
+
+  override async waitUntilLoaded(): Promise<void> {
+    await expect(this.heading).toBeVisible();
+  }
+
+  async timKiem(ma: string): Promise<void> {
+    await this.step(`tìm mã hàng "${ma}"`, async () => {
+      await this.search.fill(ma);
+    });
+  }
+}
+```
+
+- Locator là **field readonly**, khai ở đầu class. Mỗi `target` distinct một locator.
+- Method mô tả **ý định** (`timKiem`), không phải thao tác (`clickNutTim`).
+- **Mọi method public bọc trong `this.step(...)`.** Đây là thứ giữ cho một lần fail còn
+  đọc được khi suite đã lớn — report hiện `StockPage: tìm mã hàng "SKU-001"` thay vì một
+  cú click vô danh.
+- Assertion **thuộc về màn hình** thì để ở đây dưới dạng `expectX()`; assertion riêng của
+  một kịch bản thì ở lại trong spec. Đó là thứ cho phép một page object phục vụ hai mươi
+  test.
+- Dialog/menu mở đè lên màn khác và **không có URL riêng** thì là `BaseComponent`, không
+  phải `BasePage` — `BasePage` bắt phải có `path`, mà `path` bịa còn tệ hơn locator bịa.
+
+### Spec
+
+Một file cho mỗi nhóm `test_case_id` cùng tiền tố (`TB1.0`, `TB1.1` → `tb.spec.ts`), đặt
+dưới `tests/ui/` theo đúng cách dự án đang chia. Import từ `src/fixtures`, **không** import
+thẳng `@playwright/test`. Giữ `test_case_id` trong tiêu đề để truy ngược về Excel gốc.
+
+```ts
+import { expect, test } from '../../src/fixtures';
+import { StockPage } from '../../src/pages/StockPage';
+
+test.describe('Kho hàng', () => {
+  test('TB1.0 tìm được mã hàng @smoke', async ({ createPage }) => {
+    const stock = createPage(StockPage);
+    await stock.open();
+
+    await stock.timKiem('SKU-001');
+
+    await expect(stock.search).toHaveValue('SKU-001');
+  });
+});
+```
+
+Fixture riêng chỉ thêm vào `src/fixtures.ts` khi màn hình dùng thường xuyên. Một hai lần
+thì `createPage(StockPage)` là đủ, đừng đẻ fixture.
+
+### Ánh xạ step sang code
+
+`action` là một trong tám verb — bảng verb và verb nào Playwright không có tương đương nằm
+ở skill `testcase-standard`, đừng chép lại ở đây. Cần tra bằng code thì dùng
+`translateAction()` của kit.
+
+Hai verb `swipe` và `scroll` trả `custom: true`: **không có** lời gọi Playwright tương
+đương. Gặp chúng thì viết method rỗng kèm `// LOCATOR-TBD` — bịa một cử chỉ sẽ trông đúng
+và sai ở mọi lần chạy.
+
+`expected` của step cuối thành assertion. `expected` rỗng ở step giữa là bình thường —
+bước dẫn đường không có kết quả quan sát riêng. Chuỗi step chỉ điều hướng ở đầu case là
+**precondition**, không phải hành động — đừng dịch từng câu văn xuôi thành một `await`.
+
+### Case có `LOCATOR-TBD` thì `test.fixme()`
+
+Kèm lý do. Nó hiện ra là "đã bỏ qua" trong report — nhìn thấy được, mà không nhuộm đỏ
+suite.
+
+### Khi nào KHÔNG sinh
+
+| Tình huống trong JSON | Xử lý |
+|---|---|
+| `source: "inferred"` | Không đưa vào bộ chạy. Giả định chưa ai xác nhận — luật ở `testcase-standard` |
+| `screen` rỗng | Không biết thuộc màn hình nào → **không tạo page object mới**, hỏi người |
+| `steps` rỗng | Không có gì để sinh, bỏ qua và báo lại |
+| `expected` của step cuối rỗng | Case không khẳng định điều gì → bỏ qua và báo lại |
+| `expected` kiểu "Theo design", "Đúng UI" | Kiểm thị giác, không phải assertion chức năng → `test.fixme` |
+
+### Báo cáo trước khi dừng
+
+Bao nhiêu case sinh được, bao nhiêu `LOCATOR-TBD` và nằm ở đâu, case nào bị bỏ vì lý do
+gì trong bảng trên. **Đừng nói "đã xong" khi còn TBD** — draft chưa phải script chạy được.
+
+---
+
+## Bước 3 — Tìm locator thật *(làm tay)*
+
+Chưa có giải pháp tự động cho bước này. Hôm nay: mở app thật, đọc DOM, ghi lại locator.
+
+```bash
+npx playwright codegen <url của màn hình>
+npm run codegen                        # nếu dự án đã khai script này
+```
+
+Đăng nhập rồi mới thấy màn hình thì dùng lại session của project `setup`
+(`playwright/.auth/user.json`) thay vì đăng nhập lại bằng tay.
+
+### Thứ tự ưu tiên locator
+
+1. **`data-testid`** — luôn dùng nếu đã có.
+2. **`id`** / `name` — nếu ổn định (không phải id tự sinh kiểu `r3xk9`).
+3. **class team tự đặt** — không dùng class của UI framework (`ant-btn`…), nó đổi khi
+   upgrade thư viện.
+4. **`getByRole` + tên hiển thị** — nếu tên đổi theo ngôn ngữ thì lấy từ từ điển locale,
+   không hardcode.
+5. **CSS kết hợp** — cuối cùng. **Không XPath.**
+
+Dùng bất kỳ mức nào từ 2–5: ghi comment `TẠM THỜI` ngay tại chỗ, nêu `data-testid` nào
+đang chờ Dev. Đổi lại sau không phải sửa spec, vì spec chỉ gọi method của page object.
+
+`toTestId(screen, target)` của kit cho ra tên `data-testid` **mong muốn** theo quy ước —
+dùng nó khi lập phiếu gửi Dev, đừng dùng nó như thể testid đó đã tồn tại.
+
+## Bước 4 — Cập nhật locator vào script
+
+```bash
+grep -rn "LOCATOR-TBD" src/ tests/     # danh sách phần tử cần locator thật
+```
+
+Mỗi dòng grep ra là một lần thay. Thay xong locator của một case thì bỏ `test.fixme` của
+chính case đó — đừng bỏ hàng loạt.
+
+## Bước 5 — Verify
+
+```bash
+npm run typecheck
+npx playwright test tests/ui/<file>.spec.ts
+```
+
+Chạy thật rồi mới báo xong. Test xanh vì `fixme` không phải test xanh.
+
+---
+
+## Cấm
+
+- **`page.waitForTimeout`** trong code đã commit. Dựa vào auto-waiting và web-first
+  assertion.
+- **Đăng nhập trong `beforeEach`.** Session do project `setup` lo, một lần cho cả lần chạy.
+  Cần đăng nhập riêng thì dùng `authenticatedTest` (một lần mỗi worker).
+- **Hardcode đường dẫn screenshot.** Dùng `screenshot(name)` của page/component — worker
+  song song sẽ ghi đè nhau.
+- **Test phụ thuộc thứ tự chạy.** Mỗi test tự tạo dữ liệu nó cần, tên sinh duy nhất.
+
+## Không thuộc skill này
+
+| Việc | Thuộc về |
+|---|---|
+| Một test case hợp lệ gồm gì, tám verb, `source` | skill `testcase-standard` |
+| Đọc file Excel, sinh ra JSON | `convertExcelToTestCases()` của qc-kit |
+| Nghĩ ra case mới | `platform-qc-agent` — **không phải** ở đây |
+| Base class, fixture, helper dùng được cho **mọi** sản phẩm | **qc-kit** — đề xuất ở đó, nâng version |
+| Sửa `.claude/skills/*` | **qc-kit** — bản ở đây là bản sao |
