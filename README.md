@@ -45,8 +45,8 @@ sẵn), một page object mẫu, một spec mẫu, `README.md`, `CLAUDE.md`, và
 
 | Skill nạp vào dự án | Trả lời |
 |---|---|
-| `qc-flow` | Thêm một màn hình / một luồng / một spec thì làm gì, theo thứ tự nào |
-| `testcase-standard` | Một test case phải trông thế nào; tám verb; `source` và cổng duyệt |
+| `gen-script` | Sinh test script: JSON test case → draft → locator thật → chạy verify |
+| `testcase-standard` | Một test case phải trông thế nào; `source` và cổng duyệt |
 | `jira` | Ghi việc lên Jira; phân biệt bug sản phẩm với lỗi của bộ test |
 
 Chúng **do kit phát hành**, không phải của dự án — sửa tại chỗ sẽ mất ở lần `sync` sau.
@@ -129,7 +129,7 @@ Publish lên registry rồi thì đổi thành range bình thường (`"qc-kit":
 |---|---|
 | `qc-kit/config` | `defineEnvironments` · `definePlaywrightConfig` · `envVar`/`envFlag`/`envNumber` · `STORAGE_STATE` |
 | `qc-kit/core` | `BasePage` · `BaseComponent` · `Authenticator` · `createAuthSetup` · `createAuthFixture` · session · `step()` · `logger` |
-| `qc-kit/contract` | Hợp đồng test case: type, validate, dịch step sang Playwright, `toTestId` |
+| `qc-kit/contract` | Hợp đồng test case: type, validate, dịch step sang Playwright, nhập từ Excel |
 | `qc-kit/api` | `BaseApiClient` — retry, auth header, bọc step sẵn |
 | `qc-kit/fixtures` | `pagesFixture` · `createApiFixture` · `createDataFixture` · `logFixture` |
 | `qc-kit/utils` | random · date · file · polling |

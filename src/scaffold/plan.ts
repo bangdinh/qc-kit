@@ -41,14 +41,10 @@ export function assertProjectName(name: string): void {
  * `CLAUDE.md`) — ghi đè chúng là xoá công của người dùng.
  */
 const MANAGED: PlannedFile[] = [
-  { template: 'claude/skills/qc-flow/SKILL.md', dest: '.claude/skills/qc-flow/SKILL.md' },
+  { template: 'claude/skills/gen-script/SKILL.md', dest: '.claude/skills/gen-script/SKILL.md' },
   {
     template: 'claude/skills/testcase-standard/SKILL.md',
     dest: '.claude/skills/testcase-standard/SKILL.md',
-  },
-  {
-    template: 'claude/skills/testcase-to-spec/SKILL.md',
-    dest: '.claude/skills/testcase-to-spec/SKILL.md',
   },
   { template: 'claude/skills/jira/SKILL.md', dest: '.claude/skills/jira/SKILL.md' },
   { template: 'claude/skills/jira/jira.sh', dest: '.claude/skills/jira/jira.sh', raw: true },

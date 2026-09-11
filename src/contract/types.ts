@@ -11,25 +11,6 @@
  * check, not by memory — see `docs/testcase-standard.md`.
  */
 
-/**
- * The verbs a step may use.
- *
- * Constrained on purpose: a step is meant to be executable, not prose. An unknown verb
- * fails validation loudly here rather than becoming a step nobody can run.
- */
-export const STEP_ACTIONS = [
-  'tap',
-  'input',
-  'swipe',
-  'scroll',
-  'wait',
-  'verify',
-  'navigate',
-  'select',
-] as const;
-
-export type StepAction = (typeof STEP_ACTIONS)[number];
-
 export const PRIORITIES = ['High', 'Medium', 'Low'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
@@ -47,12 +28,15 @@ export type TestCaseSource = (typeof SOURCES)[number];
 export interface TestStep {
   /** 1-based, within this test case. */
   no: number;
-  /** snake_case identifier of the screen, e.g. `livestream_setup`. */
-  screen: string;
-  action: StepAction;
-  /** snake_case identifier of the element acted on, e.g. `start_live_button`. */
-  target: string;
-  /** What the tester does. */
+  /**
+   * What the tester does — prose, as written by whoever wrote the case.
+   *
+   * This is the whole step. There is deliberately no `action`, no `screen` and no
+   * `target` beside it: a hand-written Excel case has no column for any of the three,
+   * and deriving them from this sentence is guessing. A guessed verb, screen or element
+   * looks exactly like a real one until the generated test runs. All three are decided
+   * later — against the real DOM, by the generator — not by this contract.
+   */
   description: string;
   /** Observable result of this step. */
   expected: string;

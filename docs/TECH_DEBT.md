@@ -39,10 +39,10 @@ test CI so `TestCaseGenerationResult.model_json_schema()` với file đó.
 
 ---
 
-## 3. `swipe` và `scroll` chưa có handler
+## 3. Cử chỉ vuốt/cuộn chưa có handler
 
-`translateAction()` trả `custom: true` cho hai verb này, tức là báo cho caller "tự lo".
-Chưa có `custom` handler mẫu nào trong kit.
+Playwright không có lời gọi thẳng cho chúng, và kit chưa có handler mẫu nào. Từ ADR-0003,
+hợp đồng cũng không còn verb để đánh dấu — bước sinh script tự nhận ra từ `description`.
 
 **Vì sao còn:** cử chỉ phụ thuộc khoảng cách, hướng và phần tử; một cài đặt mặc định sai
 sẽ lan ra mọi dự án kế thừa. Thà chưa có còn hơn có mà sai.
