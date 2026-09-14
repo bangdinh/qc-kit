@@ -49,6 +49,14 @@ const MANAGED: PlannedFile[] = [
   { template: 'claude/skills/jira/SKILL.md', dest: '.claude/skills/jira/SKILL.md' },
   { template: 'claude/skills/jira/jira.sh', dest: '.claude/skills/jira/jira.sh', raw: true },
   { template: 'jira.env.example', dest: '.jira.env.example', raw: true },
+  /**
+   * Bản mẫu cho `docs/test-structure.md` — file mà `gen-script` đọc để biết dự án chia
+   * thư mục page object và spec kiểu gì.
+   *
+   * Cùng khuôn với `.jira.env.example`: kit phát hành bản `.example`, dự án copy sang tên
+   * thật rồi tự điền. `sync` refresh bản mẫu mà không đụng nội dung dự án đã viết.
+   */
+  { template: 'docs/test-structure.example.md', dest: 'docs/test-structure.example.md' },
 ];
 
 /** Tập file mà `qc-kit sync` được phép ghi đè trong một dự án đã tồn tại. */
