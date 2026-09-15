@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
-import { STORAGE_STATE } from 'qc-kit/config';
-import { BasePage, saveSession, type Authenticator } from 'qc-kit/core';
+import { BasePage } from 'qc-kit/core';
+import { STORAGE_STATE, saveSession, type Authenticator } from '../core';
 
 export interface LoginCredentials {
   username: string;

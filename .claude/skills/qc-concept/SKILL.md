@@ -24,7 +24,7 @@ copy khung — mô hình theo `b2b-gokit`. Nó trả lời **"test bằng cách 
 | **`qc-kit`** ← repo này | **Test bằng cách nào?** |
 | Dự án tiêu thụ (`web-first-automation` là **một** trong số đó) | Sản phẩm này cụ thể ra sao? |
 
-## Bốn luật — vi phạm nghĩa là code đang nằm sai chỗ
+## Năm luật — vi phạm nghĩa là code đang nằm sai chỗ
 
 1. **Không gọi LLM.** Sinh test case là việc của `platform-qc-agent`.
 2. **`src/` không biết một sản phẩm nào.** Không locator thật, URL, tài khoản, tên module.
@@ -32,11 +32,15 @@ copy khung — mô hình theo `b2b-gokit`. Nó trả lời **"test bằng cách 
 3. **Không chứa tri thức sinh case.** Checklist các nhóm case, cách suy case từ
    requirement — thuộc prompt của agent.
 4. **Không export sẵn một `test` đã compose.** Kit export *factory*; dự án tự `mergeTests`.
+5. **Không chứa luồng đăng nhập.** `createAuthSetup`/`createAuthFixture`/session cache đã
+   rời kit (ADR 0004). Preset vẫn nối `setup → chromium` và nhận `storageState`, nhưng
+   đường dẫn là của dự án. Bản mẫu ở `cmd/scaffold/templates/auth/`.
 
 ```bash
 grep -rE "from ['\"](@anthropic-ai/|openai|langchain)" src/ && echo "VI PHẠM 1"
 grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/               && echo "VI PHẠM 2/3"
 grep -rE "^import .*mergeTests" src/                        && echo "VI PHẠM 4"
+grep -rE "createAuthSetup|createAuthFixture|hasFreshSession" src/ && echo "VI PHẠM 5"
 ```
 
 Cả ba check đều cố tình dò **import/định danh**, không dò chữ trong comment — repo có ví
@@ -45,8 +49,8 @@ dụ hợp lệ nhắc `mergeTests` và `OpenAI envelope` trong doc comment.
 ## Layout
 
 ```
-src/config/    env · defineEnvironments · definePlaywrightConfig · paths · find-setup
-src/core/      BasePage · BaseComponent · auth · session · step · logger
+src/config/    env · defineEnvironments · definePlaywrightConfig · find-setup
+src/core/      BasePage · BaseComponent · step · logger
 src/contract/  hợp đồng test case: types · validate · translate · testid
 src/api/       BaseApiClient        src/fixtures/  factory fixture
 src/scaffold/  plan · render        src/utils/  src/types/
@@ -81,11 +85,12 @@ nó đoán sai thì truyền `module` tay, đừng đặt ra quy tắc mới.
 |---|---|
 | Cách sinh ra một loại case mới | `platform-qc-agent` — **không phải đây** |
 | Locator / URL / tài khoản của một sản phẩm | Dự án tiêu thụ — **không phải đây** |
+| Luồng đăng nhập, cache session, đường dẫn `.auth` | Dự án tiêu thụ (bản mẫu ở `templates/auth/`) — **không phải đây** |
 | Một page object / component / API client **mẫu** | `cmd/scaffold/templates/` + entry trong `src/scaffold/plan.ts` |
 | Một skill cho **dự án tiêu thụ** | `cmd/scaffold/templates/claude/skills/` + `MANAGED` trong `plan.ts` |
 | Một skill cho **chính kit** | `.claude/skills/` của repo này — không ship cho ai |
 | Cách trình bày, xuất báo cáo test case | `src/report/` (chưa có) |
-| Năng lực cắt ngang (dọn dữ liệu, matcher riêng) | `src/core/` — phải dùng được cho **mọi** sản phẩm |
+| Năng lực cắt ngang (dọn dữ liệu, matcher riêng) | `src/core/` — phải dùng được cho **mọi** sản phẩm. Đăng nhập KHÔNG tính: xem luật 5 |
 | Một option mới cho preset | `src/config/define-config.ts` + test trong `define-config.test.ts` |
 
 ## Verify

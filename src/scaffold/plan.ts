@@ -57,6 +57,15 @@ const MANAGED: PlannedFile[] = [
    * thật rồi tự điền. `sync` refresh bản mẫu mà không đụng nội dung dự án đã viết.
    */
   { template: 'docs/test-structure.example.md', dest: 'docs/test-structure.example.md' },
+  /**
+   * Bản mẫu cho `docs/test-data.md` — file thứ hai mà `gen-script` đọc trước khi sinh.
+   *
+   * `test-structure` trả lời "thư mục chia thế nào", `test-data` trả lời "có sẵn trạng
+   * thái dữ liệu nào". Cả hai đều là tri thức của dự án, và cả hai đều là thứ generator
+   * sẽ ĐOÁN nếu không ai khai — đoán tên biến `.env` cho một tài khoản chưa ai cấp là
+   * cách nhanh nhất để có một bộ test trông chạy được mà không chạy được.
+   */
+  { template: 'docs/test-data.example.md', dest: 'docs/test-data.example.md' },
 ];
 
 /** Tập file mà `qc-kit sync` được phép ghi đè trong một dự án đã tồn tại. */
@@ -78,7 +87,19 @@ const ALWAYS: PlannedFile[] = [
   { template: 'tests/ui/example.spec.ts', dest: 'tests/ui/example.spec.ts' },
 ];
 
+/**
+ * Luồng đăng nhập của dự án tiêu thụ — TOÀN BỘ, kể cả phần lõi.
+ *
+ * qc-kit không export gì về đăng nhập (xem ADR 0004): màn đăng nhập trông ra sao, session
+ * cache ở đâu, cookie dùng lại bao lâu đều là chính sách của một bộ test, và một kit dùng
+ * chung cho web · mobile · backend không có câu trả lời đúng cho cả ba. Nên `--auth` sinh
+ * ra bản của chính dự án ở `src/core/` — dự án sở hữu nó, sửa được, và `sync` không đụng.
+ */
 const WITH_AUTH: PlannedFile[] = [
+  { template: 'auth/core/auth.ts', dest: 'src/core/auth.ts' },
+  { template: 'auth/core/session.ts', dest: 'src/core/session.ts' },
+  { template: 'auth/core/paths.ts', dest: 'src/core/paths.ts' },
+  { template: 'auth/core/index.ts', dest: 'src/core/index.ts' },
   { template: 'auth/credentials.ts', dest: 'src/data/credentials.ts' },
   { template: 'auth/authenticators.ts', dest: 'src/data/authenticators.ts' },
   { template: 'auth/LoginPage.ts', dest: 'src/pages/LoginPage.ts' },

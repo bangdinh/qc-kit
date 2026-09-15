@@ -8,8 +8,9 @@ Bộ kit QC **dùng chung** cho automation web · mobile · backend — mỗi d�
 vì copy khung. Xây trên [Playwright](https://playwright.dev) + TypeScript, mô hình Page
 Object kết hợp custom fixtures.
 
-Kit **không chứa test của sản phẩm nào**. Nó chứa cơ chế: cấu hình, session, step vào
-report, base class, hợp đồng test case, và một generator dựng dự án mới.
+Kit **không chứa test của sản phẩm nào**. Nó chứa cơ chế: cấu hình, step vào report,
+base class, hợp đồng test case, và một generator dựng dự án mới. Luồng đăng nhập **không**
+nằm trong kit — xem [ADR 0004](docs/adr/0004-dua-dang-nhap-ve-du-an.md).
 
 > **Lần đầu vào repo?** Đọc [ONBOARDING.md](ONBOARDING.md) trước — 5 phút, đủ hiểu qc-kit
 > đứng ở đâu giữa `platform-qc-agent`, `web-first-automation` và Dify.
@@ -40,8 +41,9 @@ Không có `--auth` thì dự án sinh ra **chạy được ngay**, không cần
 Sinh ra: `package.json`, `tsconfig.json`, `playwright.config.ts` (một lời gọi preset),
 `.env.example`, `src/env.ts` (bảng môi trường của bạn), `src/fixtures.ts` (đã compose
 sẵn), một page object mẫu, một spec mẫu, `README.md`, `CLAUDE.md`, và **ba skill** trong
-`.claude/skills/`. Thêm `--auth` thì có `LoginPage`, `credentials`, `authenticators` và
-`tests/setup/auth.setup.ts`.
+`.claude/skills/`. Thêm `--auth` thì có cả luồng đăng nhập của dự án: `src/core/`
+(`auth` · `session` · `paths`), `LoginPage`, `credentials`, `authenticators` và
+`tests/setup/auth.setup.ts` — dự án sở hữu toàn bộ, kit không export gì về đăng nhập.
 
 | Skill nạp vào dự án | Trả lời |
 |---|---|
@@ -127,13 +129,13 @@ Publish lên registry rồi thì đổi thành range bình thường (`"qc-kit":
 
 | Subpath | Dùng để |
 |---|---|
-| `qc-kit/config` | `defineEnvironments` · `definePlaywrightConfig` · `envVar`/`envFlag`/`envNumber` · `STORAGE_STATE` |
-| `qc-kit/core` | `BasePage` · `BaseComponent` · `Authenticator` · `createAuthSetup` · `createAuthFixture` · session · `step()` · `logger` |
+| `qc-kit/config` | `defineEnvironments` · `definePlaywrightConfig` · `envVar`/`envFlag`/`envNumber` |
+| `qc-kit/core` | `BasePage` · `BaseComponent` · `step()` · `logger` |
 | `qc-kit/contract` | Hợp đồng test case: type, validate, dịch step sang Playwright, nhập từ Excel |
 | `qc-kit/api` | `BaseApiClient` — retry, auth header, bọc step sẵn |
 | `qc-kit/fixtures` | `pagesFixture` · `createApiFixture` · `createDataFixture` · `logFixture` |
 | `qc-kit/utils` | random · date · file · polling |
-| `qc-kit/types` | `Credentials` · `Overrides` |
+| `qc-kit/types` | `Overrides` |
 | `qc-kit/scaffold` | Phần thuần của generator (`plan`, `render`) |
 
 `@playwright/test` là **peer dependency tuỳ chọn** — suite API thuần cài kit mà không cần
@@ -145,12 +147,15 @@ browser.
 |---|---|---|
 | `TEST_ENV` | entry đầu bảng | Chọn một khối trong bảng môi trường của dự án |
 | `BASE_URL` / `API_URL` | lấy từ bảng | **Thắng mọi môi trường**, kể cả khi đổi `TEST_ENV`. `API_URL` trống thì theo `BASE_URL` |
-| `SESSION_TTL_MINUTES` | `30` | Session đã cache dùng lại bao lâu trước khi đăng nhập lại |
+| `API_TOKEN` | — | Bearer token mặc định cho `createApiFixture` |
 | `API_TOKEN` | — | Bearer token mặc định cho `createApiFixture` |
 | `HEADED` | tắt | `1` = hiện cửa sổ browser. **CI bỏ qua biến này** |
 | `SLOW_MO` | `0` | Chậm N mili giây mỗi thao tác. Chỉ có tác dụng khi `HEADED=1` |
 | `ACTION_TIMEOUT` · `NAVIGATION_TIMEOUT` · `EXPECT_TIMEOUT` · `TEST_TIMEOUT` | lấy từ bảng | Override tính bằng mili giây |
 | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
+
+> `SESSION_TTL_MINUTES` không còn trong bảng này: kit không đọc nó nữa. Nó do code đăng
+> nhập của **dự án** đọc (`src/core/session.ts` mà `--auth` sinh ra), qua `envNumber` của kit.
 
 > Giá trị **để trống** nghĩa là *"dùng mặc định"*, không phải *"dùng chuỗi rỗng"*. Nhờ
 > vậy placeholder trống trong `.env.example` không bao giờ ghi đè một mặc định thật.
@@ -186,6 +191,19 @@ definePlaywrightConfig({
   overrides: { workers: 2 },               // bất cứ thứ gì Playwright chấp nhận
 });
 ```
+
+**Có màn đăng nhập?** Truyền `storageState` — đường dẫn file session mà `*.setup.ts` của
+dự án ghi ra:
+
+```ts
+import { STORAGE_STATE } from './src/core';   // của DỰ ÁN, không phải của kit
+
+definePlaywrightConfig({ env: config, storageState: STORAGE_STATE });
+```
+
+Preset nối `setup` → `chromium` và gắn session cho project đã đăng nhập, nhưng nó không
+còn biết session nằm ở đâu: đó là tri thức của bộ test (ADR 0004). Bật `auth` mà quên
+`storageState` thì preset báo lỗi ngay lúc đọc config.
 
 **Không có màn đăng nhập?** `projects: { auth: false }`. Để mặc định (bật) mà thiếu file
 `*.setup.ts` thì preset báo lỗi ngay lúc đọc config, kèm đúng việc cần làm — thay vì để
@@ -256,8 +274,8 @@ qc-kit/
 │   └── vong-khep-kin-qc.html      bức tranh tổng quan hệ sinh thái
 │
 ├── src/                        ── KIT: không dòng nào biết một sản phẩm ──
-│   ├── config/     env · defineEnvironments · definePlaywrightConfig · paths
-│   ├── core/       BasePage · BaseComponent · auth · session · step · logger
+│   ├── config/     env · defineEnvironments · definePlaywrightConfig · find-setup
+│   ├── core/       BasePage · BaseComponent · step · logger
 │   ├── contract/   hợp đồng test case: type · validate · translate · testid
 │   ├── api/        BaseApiClient
 │   ├── fixtures/   factory fixture (KHÔNG export sẵn một `test`)
@@ -266,7 +284,7 @@ qc-kit/
 │   └── **/*.test.ts               unit test nằm cạnh code nó test
 │
 └── cmd/scaffold/               ── generator + template dự án mới ──
-    └── templates/                 gồm cả LoginPage, credentials, auth.setup mẫu
+    └── templates/                 gồm cả src/core (auth · session · paths) mẫu
 ```
 
 **Một luật phụ thuộc giữ toàn bộ đứng vững:** không file nào trong `src/` được biết một
@@ -305,8 +323,9 @@ không nằm trong `src/`.
 | `Unknown TEST_ENV "x". Expected one of: …` | Gõ sai trong `.env`, hoặc môi trường đó chưa có trong bảng |
 | `No base URL for environment "x"` | Bảng thiếu `baseURL` và `.env` cũng không có `BASE_URL` |
 | `No setup file matching …setup.ts` | Dự án bật `auth` (mặc định) nhưng chưa có file setup. Thêm nó, hoặc `projects: { auth: false }` |
+| `…are on but no storageState was given` | Bật `auth` mà quên truyền `storageState`. Truyền đường dẫn file session của dự án, hoặc `projects: { auth: false }` |
 | `Executable doesn't exist at …chrome-headless-shell` | Chưa tải browser — `npx playwright install chromium` |
-| Mọi test fail ngay sau khi đăng nhập | Session cache hỏng — `rm -rf playwright/.auth/*.json` rồi chạy lại |
+| Mọi test fail ngay sau khi đăng nhập | Session cache hỏng — xoá file session của dự án (mặc định `playwright/.auth/*.json`) rồi chạy lại |
 | Report hiện một cú click trần, không có step | Có method của page object quên bọc `this.step(...)` |
 | Một spec đăng nhập lại mỗi lần chạy | Nó đang tự gọi `signIn()` trong `beforeEach` — xem STRUCTURE.md §5 |
 

@@ -11,6 +11,28 @@ diễn giải lại cho người đọc.
 
 ## [Unreleased]
 
+### BREAKING — dự kiến v0.3.0: luồng đăng nhập rời khỏi kit
+
+Kit không còn export `createAuthSetup`, `createAuthFixture`, `Authenticator`,
+`AuthenticatorFactory`, phần session (`hasFreshSession` · `saveSession` · `writeSession` ·
+`writeEmptySession` · `clearSession` · `sessionTtlMs`), `STORAGE_STATE` · `storageStatePath`
+· `AUTH_DIR`, và type `Credentials`. Lý do và điều kiện đổi ý:
+[ADR 0004](docs/adr/0004-dua-dang-nhap-ve-du-an.md).
+
+`definePlaywrightConfig` vẫn dựng `setup → chromium` + `chromium-guest`, nhưng
+**`storageState` không còn mặc định**: bật `projects.auth` mà không truyền thì lỗi ngay
+lúc đọc config.
+
+Nâng cấp một dự án đang dùng bản cũ:
+
+1. Mang ba file về dự án — lấy nguyên bản ở `cmd/scaffold/templates/auth/core/`, đặt vào
+   `src/core/{auth,session,paths}.ts` + một `index.ts` re-export.
+2. Đổi import: `qc-kit/core` → `./core` cho `createAuthSetup` · `createAuthFixture` ·
+   `saveSession` · `Authenticator`; `qc-kit/config` → `./core` cho `STORAGE_STATE`.
+3. `playwright.config.ts`: thêm `storageState: STORAGE_STATE` lấy từ `./src/core`.
+
+Dự án sinh mới bằng `npx qc-kit new --auth` đã có sẵn cả ba bước.
+
 ## v0.2.0 — 2026-09-09
 
 ### Added / Changed

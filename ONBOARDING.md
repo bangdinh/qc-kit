@@ -69,7 +69,7 @@ Toàn bộ thiết kế đi ra từ việc tách hai loại tri thức:
 | | **Tri thức framework** | **Tri thức sản phẩm** |
 |---|---|---|
 | Trả lời | *Chúng ta test như thế nào?* | *Chúng ta đang test cái gì?* |
-| Ví dụ | step ghi vào report ra sao, session cache thế nào | `beta` trỏ URL nào, nút submit ghi chữ gì |
+| Ví dụ | step ghi vào report ra sao, `.env` override một mặc định ra sao | `beta` trỏ URL nào, nút submit ghi chữ gì, session cache ở đâu |
 | Nằm ở | **`src/` của repo này** | **dự án tiêu thụ** — kit chỉ giữ bản mẫu ở `cmd/scaffold/templates/` |
 
 Ranh giới đó kiểm được, và đáng chạy trước mỗi lần merge:

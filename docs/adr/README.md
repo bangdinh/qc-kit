@@ -30,3 +30,4 @@ thứ kiểm lại được, thay vì một niềm tin không ai dám động v�
 | [0001](0001-kien-truc-qc-kit.md) | Spec-based TDD, một package, hợp đồng ở giữa |
 | [0002](0002-bo-target-khoi-hop-dong.md) | Bỏ `target` khỏi `TestStep`; phần tử xác định từ DOM |
 | [0003](0003-step-chi-con-van-xuoi.md) | Bỏ `screen` + `action`; step rút về `no` · `description` · `expected` |
+| [0004](0004-dua-dang-nhap-ve-du-an.md) | Đưa luồng đăng nhập (auth · session · `.auth`) ra khỏi kit, về dự án tiêu thụ |

@@ -34,6 +34,27 @@ test('--auth thêm setup, credentials và authenticator', () => {
   expect(dests).toContain('src/data/authenticators.ts');
 });
 
+/*
+ * Từ v0.3.0 kit không còn export phần đăng nhập. `--auth` vì thế phải sinh ra bản của
+ * chính dự án — không có bộ này thì dự án sinh ra import một thứ không tồn tại.
+ */
+test('--auth sinh luôn phần core đăng nhập của dự án, không dựa vào kit', () => {
+  const dests = plan({ ...base, auth: true }).map((f) => f.dest);
+  for (const need of [
+    'src/core/auth.ts',
+    'src/core/session.ts',
+    'src/core/paths.ts',
+    'src/core/index.ts',
+  ]) {
+    expect(dests, `thiếu ${need}`).toContain(need);
+  }
+});
+
+test('không --auth thì không sinh core đăng nhập', () => {
+  const dests = plan(base).map((f) => f.dest);
+  expect(dests.some((d) => d.startsWith('src/core/'))).toBe(false);
+});
+
 test('--api dựng đủ tầng cho một bộ test API', () => {
   const dests = plan({ ...base, api: true }).map((f) => f.dest);
   for (const need of [
@@ -91,6 +112,7 @@ test.describe('skill nạp vào dự án', () => {
       '.claude/skills/jira/SKILL.md',
       '.claude/skills/jira/jira.sh',
       'docs/test-structure.example.md',
+      'docs/test-data.example.md',
     ]) {
       expect(dests, `thiếu ${need}`).toContain(need);
     }
@@ -135,6 +157,7 @@ test.describe('managedAssets — thứ `sync` được phép ghi đè', () => {
       '.claude/skills/jira/jira.sh',
       '.jira.env.example',
       'docs/test-structure.example.md',
+      'docs/test-data.example.md',
     ]);
   });
 });

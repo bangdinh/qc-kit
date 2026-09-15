@@ -14,7 +14,6 @@ import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/te
 import type { ResolvedEnvironment } from './define-environments';
 import { envFlag, envNumber, isCI, loadDotEnv } from './env';
 import { hasSetupFile } from './find-setup';
-import { STORAGE_STATE } from './paths';
 
 type Projects = NonNullable<PlaywrightTestConfig['projects']>;
 
@@ -25,7 +24,11 @@ export interface PlaywrightPresetOptions {
   testDir?: string;
   /** Where traces, screenshots and videos land. Default: `./test-results`. */
   outputDir?: string;
-  /** Session the authenticated projects reuse. Default: the shared one. */
+  /**
+   * Session the authenticated projects reuse -- where the setup project writes it and
+   * `chromium` reads it back. **Required whenever the auth projects are on**: the path is
+   * the project's to choose, the kit no longer owns one.
+   */
   storageState?: string;
   /** Which files count as setup projects. Default: `*.setup.ts`. */
   setupMatch?: RegExp;
@@ -103,7 +106,7 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
     env,
     testDir = './tests',
     outputDir = './test-results',
-    storageState = STORAGE_STATE,
+    storageState,
     setupMatch = /.*\.setup\.ts/,
     specMatch = '**/{ui,e2e}/**/*.spec.ts',
     overrides,
@@ -113,11 +116,25 @@ export function definePlaywrightConfig(options: PlaywrightPresetOptions): Playwr
   const withWeb = options.projects?.web ?? true;
   const withAuth = options.projects?.auth ?? true;
 
+  /*
+   * Where the session lives is the project's knowledge, not the kit's: which file, which
+   * folder, which role. The preset only wires the projects together, so it has to be told
+   * — and being told nothing is a mistake worth a config-time error, not a suite that
+   * quietly runs signed out.
+   */
+  if (withWeb && withAuth && !storageState) {
+    throw new Error(
+      'The authenticated projects are on but no `storageState` was given. Pass the path ' +
+        'your setup file writes (e.g. `storageState: STORAGE_STATE` from the project’s ' +
+        'own paths module), or pass `projects: { auth: false }` for a product with no login.',
+    );
+  }
+
   if (withWeb && withAuth && !hasSetupFile(path.resolve(testDir), setupMatch)) {
     throw new Error(
       `No setup file matching ${setupMatch} under "${testDir}", but the authenticated ` +
-        `projects expect a session at "${storageState}". Add one (see the kit's ` +
-        '`createAuthSetup`), or pass `projects: { auth: false }` for a product with no login.',
+        `projects expect a session at "${storageState}". Add one that signs in and writes ` +
+        'that file, or pass `projects: { auth: false }` for a product with no login.',
     );
   }
 
