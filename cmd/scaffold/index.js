@@ -95,7 +95,8 @@ qc-kit — sinh dự án automation mới
 
   <ten-du-an>   kebab-case; trở thành tên package npm
   --out         thư mục đích (mặc định: chính tên dự án)
-  --auth        sinh luồng đăng nhập: setup project, credentials, LoginPage
+  --auth        sinh luồng đăng nhập của DỰ ÁN: src/core (auth · session · paths),
+                setup project, credentials, LoginPage
   --api         sinh client API và spec API mẫu
 
   sync          ghi đè asset dùng chung (.claude/skills) theo bản kit đang cài.
@@ -109,8 +110,9 @@ Ví dụ:
 }
 
 function variables(opts, kitSpecValue, pwRange) {
+  // Fixture đăng nhập nay là của dự án: `src/core/auth.ts`, sinh kèm bởi `--auth`.
   const authImports = opts.auth
-    ? "import { createAuthFixture } from 'qc-kit/core';\n" +
+    ? "import { createAuthFixture } from './core';\n" +
       "import { standardUser } from './data/authenticators';\n"
     : '';
   const authFixture = opts.auth
@@ -123,6 +125,11 @@ function variables(opts, kitSpecValue, pwRange) {
       'SESSION_TTL_MINUTES=30\n'
     : '';
 
+  // Đường dẫn session là của dự án, nên nó xuất hiện trong config của dự án — kit không
+  // còn mặc định nào để rơi về.
+  const storageImport = opts.auth ? "import { STORAGE_STATE } from './src/core';\n" : '';
+  const storageOption = opts.auth ? '  storageState: STORAGE_STATE,\n' : '';
+
   return {
     NAME: opts.name,
     QC_KIT_VERSION: kitSpecValue,
@@ -132,6 +139,8 @@ function variables(opts, kitSpecValue, pwRange) {
     AUTH_IMPORTS: authImports,
     AUTH_FIXTURE: authFixture,
     AUTH_ENV: authEnv,
+    STORAGE_IMPORT: storageImport,
+    STORAGE_OPTION: storageOption,
   };
 }
 

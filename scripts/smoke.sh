@@ -63,6 +63,10 @@ if grep -rl '__[A-Z][A-Z0-9_]*__' . --exclude-dir=node_modules 2>/dev/null | gre
   echo "✗ còn placeholder chưa thay trong file sinh ra"; exit 1
 fi
 [ -f ".jira.env.example" ] || { echo "✗ thiếu .jira.env.example"; exit 1; }
+# Bản mẫu cấu trúc: gen-script dừng nếu dự án chưa có docs/test-structure.md, nên bản mẫu
+# phải tới được tay dự án. Bản thật thì dự án tự copy — kit không sinh hộ.
+[ -f "docs/test-structure.example.md" ] || { echo "✗ thiếu docs/test-structure.example.md"; exit 1; }
+[ -f "docs/test-structure.md" ] && { echo "✗ kit không được sinh hộ docs/test-structure.md"; exit 1; }
 # Token lọt vào commit là sự cố bảo mật — kiểm bằng chính git, không bằng cách đọc file.
 git init -q . && git add -A -f .gitignore >/dev/null 2>&1
 git check-ignore -q .jira.env || { echo "✗ .gitignore không chặn .jira.env"; exit 1; }

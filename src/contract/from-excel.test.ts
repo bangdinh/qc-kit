@@ -17,10 +17,10 @@ import { convertExcelToTestCases } from './convert-excel';
  * backslash vì `\U` `\F` `\D` không phải escape hợp lệ — chuỗi thành `C:UsersFPTDownloads`
  * và Node đi tìm nó trong thư mục hiện tại. Node nhận `/` trên mọi hệ điều hành.
  */
-const DEFAULT_EXCEL_FILE = 'C:/Users/FPT/Downloads/Device_Management_TestCase_v1.0.0.xlsx';
+const DEFAULT_EXCEL_FILE = 'C:/Users/FPT/Downloads/Testcase_Authentication_v1.0.0.xlsx';
 const EXCEL_FILE = process.env.QC_EXCEL_FILE || DEFAULT_EXCEL_FILE;
 
-test('chuyển file Excel thật sang JSON để review', async ({}, testInfo) => {
+test('chuyển file Excel thật sang JSON để review', async ({ }, testInfo) => {
   // Skip theo SỰ TỒN TẠI của file, không theo biến có được đặt hay không: đường dẫn mặc
   // định trỏ vào máy một người, nên trên máy khác test phải bỏ qua thay vì đỏ.
   test.skip(!fs.existsSync(EXCEL_FILE), `Không thấy file Excel: ${EXCEL_FILE}`);

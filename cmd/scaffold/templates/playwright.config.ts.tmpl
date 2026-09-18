@@ -1,6 +1,6 @@
 import { definePlaywrightConfig } from 'qc-kit/config';
 import { config } from './src/env';
-
+__STORAGE_IMPORT__
 /**
  * Bố cục project do preset của qc-kit dựng: đăng nhập một lần ở project `setup`, chạy
  * spec đã đăng nhập ở `chromium`, spec `@guest` ở project không có session, spec API
@@ -8,5 +8,5 @@ import { config } from './src/env';
  */
 export default definePlaywrightConfig({
   env: config,
-  projects: { auth: __AUTH__, api: __API__ },
+__STORAGE_OPTION__  projects: { auth: __AUTH__, api: __API__ },
 });

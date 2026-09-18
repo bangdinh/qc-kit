@@ -13,7 +13,7 @@ nào" (đó là `platform-qc-agent`).
 Concept đầy đủ: [`ONBOARDING.md`](ONBOARDING.md). Quyết định kiến trúc:
 [`docs/adr/0001`](docs/adr/0001-kien-truc-qc-kit.md).
 
-## Bốn luật — vi phạm nghĩa là code đang nằm sai repo
+## Năm luật — vi phạm nghĩa là code đang nằm sai repo
 
 1. **Không gọi LLM.** Không `anthropic`, `openai`, `claude`. Sinh test case là việc của
    `platform-qc-agent`.
@@ -23,6 +23,10 @@ Concept đầy đủ: [`ONBOARDING.md`](ONBOARDING.md). Quyết định kiến t
    requirement — thuộc prompt của agent.
 4. **Không export sẵn một `test` đã compose.** Kit export *factory*; dự án tự
    `mergeTests`. Export sẵn là bắt mọi consumer thừa kế sản phẩm của người khác.
+5. **Không chứa luồng đăng nhập.** Đăng nhập bằng cách nào, session cache ở đâu, cookie
+   dùng lại bao lâu — chính sách của một bộ test, không phải năng lực cắt ngang. Preset
+   vẫn nối `setup → chromium` và nhận `storageState`, nhưng nó không được biết đường dẫn
+   nào. Bản mẫu sống ở `cmd/scaffold/templates/auth/` ([ADR 0004](docs/adr/0004-dua-dang-nhap-ve-du-an.md)).
 
 ```bash
 # 1 — dò import, KHÔNG dò chữ trong comment: `validate.ts` nhắc "OpenAI envelope"
@@ -36,6 +40,10 @@ grep -rniE "fcam\.vn|vmsmart|beta-" src/ cmd/ && echo "VI PHẠM 2/3"
 # 4 — kit không được export một `test` đã compose. Dò IMPORT thật, không dò chữ:
 # src/fixtures/index.ts có ví dụ mergeTests trong comment để chỉ consumer cách compose.
 grep -rE "^import .*mergeTests" src/ && echo "VI PHẠM 4"
+
+# 5 — không luồng đăng nhập nào trong kit. `storageState` là TÊN OPTION của preset nên
+# không dò nó; dò phần cài đặt thật.
+grep -rE "createAuthSetup|createAuthFixture|hasFreshSession|playwright/\.auth" src/ && echo "VI PHẠM 5"
 ```
 
 ## Verify — một phát, không chạy lẻ từng file
@@ -54,7 +62,7 @@ runner thứ hai, đừng thêm vitest/jest.
 
 - **Tìm trước khi viết.** Đã có `contract.*` (validate · translate · toTestId),
   `config.*` (env · defineEnvironments · definePlaywrightConfig · hasSetupFile),
-  `BaseUiObject`/`BasePage`/`BaseComponent`, `BaseApiClient`, `logger`, `step`, `session`,
+  `BaseUiObject`/`BasePage`/`BaseComponent`, `BaseApiClient`, `logger`, `step`,
   `scaffold.*` (plan · render). Dựng lại thứ đã có là một defect.
 - **Không bịa.** Helper/signature/hành vi không có trong source và không chắc thì đọc
   code. Thật sự chưa có thì nói chưa có và đề xuất thêm — đừng vờ như nó tồn tại.
@@ -102,8 +110,8 @@ transition** (xem skill `jira`).
 ## Layout
 
 ```
-src/config/    env · defineEnvironments · definePlaywrightConfig · paths · find-setup
-src/core/      BasePage · BaseComponent · auth · session · step · logger
+src/config/    env · defineEnvironments · definePlaywrightConfig · find-setup
+src/core/      BasePage · BaseComponent · step · logger
 src/contract/  hợp đồng test case: types · validate · translate · testid
 src/api/       BaseApiClient          src/fixtures/  factory fixture
 src/scaffold/  plan · render          src/utils/  src/types/

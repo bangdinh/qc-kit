@@ -1,0 +1,29 @@
+import path from 'node:path';
+
+/**
+ * Đường dẫn session của DỰ ÁN NÀY.
+ *
+ * qc-kit cố tình không sở hữu đường dẫn nào: `playwright/.auth` là quy ước, và mỗi bộ
+ * test có quyền chọn quy ước khác (thư mục khác, chia theo role khác). Đổi ở đây thì
+ * `playwright.config.ts` và `auth.setup.ts` đi theo, không phải sửa kit.
+ */
+
+/** Thư mục chứa session đã cache (đã git-ignore). */
+export const AUTH_DIR = path.resolve('playwright/.auth');
+
+/**
+ * File session cho một role hoặc một worker. Mỗi người ghi một file riêng để worker chạy
+ * song song không tranh nhau một đường dẫn:
+ *   storageStatePath()            -> playwright/.auth/user.json
+ *   storageStatePath('admin')     -> playwright/.auth/admin.json
+ *   storageStatePath('worker-3')  -> playwright/.auth/worker-3.json
+ */
+export function storageStatePath(role = 'user'): string {
+  return path.join(AUTH_DIR, `${role}.json`);
+}
+
+/**
+ * Session dùng chung. `playwright.config.ts` đưa nó cho mọi project cần đăng nhập và
+ * `tests/setup/auth.setup.ts` là thứ DUY NHẤT ghi nó.
+ */
+export const STORAGE_STATE = storageStatePath('user');

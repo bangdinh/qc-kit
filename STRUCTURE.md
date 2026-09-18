@@ -19,7 +19,7 @@ chúng tách bạch:
 | | **Tri thức framework** | **Tri thức sản phẩm** |
 |---|---|---|
 | Trả lời câu hỏi | *Chúng ta test như thế nào?* | *Chúng ta đang test cái gì?* |
-| Ví dụ | một step được ghi vào report ra sao, session được cache thế nào, `.env` override một giá trị mặc định ra sao, lỗi API được định dạng thế nào | `beta` trỏ vào URL nào, tài khoản test là gì, nút submit ghi chữ gì |
+| Ví dụ | một step được ghi vào report ra sao, `.env` override một giá trị mặc định ra sao, lỗi API được định dạng thế nào | `beta` trỏ vào URL nào, tài khoản test là gì, session cache ở đâu, nút submit ghi chữ gì |
 | Thay đổi khi | cả nhóm đổi cách làm test | sản phẩm thay đổi |
 | Nằm ở | **toàn bộ `src/` của repo này** | **dự án tiêu thụ** — kit chỉ giữ bản mẫu ở `cmd/scaffold/templates/` |
 | Thuộc về | mọi dự án — đây là package `qc-kit` | riêng một dự án |
@@ -87,7 +87,7 @@ thầm chạy vào nhầm host.
 **Bố cục runner** — framework sở hữu đồ thị project; dự án sở hữu URL.
 
 ```ts
-definePlaywrightConfig({ env, projects?, extraProjects?, overrides? })
+definePlaywrightConfig({ env, storageState?, projects?, extraProjects?, overrides? })
 ```
 
 Thứ đáng chia sẻ ở đây không phải timeout mà là *hình dạng*: đăng nhập một lần trong
@@ -95,17 +95,21 @@ setup project, chạy spec đã đăng nhập ở một project, chạy spec `@g
 không có session, và giữ spec API nằm ngoài browser. Làm sai hình dạng này chính là cách
 một suite kết thúc bằng việc đăng nhập lại ở từng spec file.
 
-**Xác thực** — framework quyết định *khi nào* đăng nhập và session cache *ở đâu*; sản
-phẩm quyết định *bằng cách nào*.
+**Xác thực — KHÔNG nằm trong kit.** Từ v0.3.0 hợp đồng đăng nhập sống trong dự án tiêu
+thụ (`src/core/auth.ts`, do `--auth` sinh ra), không phải trong `qc-kit/core`. Kit chỉ
+còn nối đồ thị project và nhận `storageState` mà dự án truyền vào — xem
+[ADR 0004](docs/adr/0004-dua-dang-nhap-ve-du-an.md).
+
+Hợp đồng đó, ở phía dự án, vẫn có hình dạng này:
 
 ```ts
 interface Authenticator { signIn(): Promise<void>; saveSession(file?): Promise<void> }
 type AuthenticatorFactory = (page: Page) => Authenticator | null   // null = chưa cấu hình
 ```
 
-`createAuthSetup(factory)` và `createAuthFixture(factory)` tiêu thụ hợp đồng này. Cả hai
-đều không biết là có tồn tại một màn hình đăng nhập. Page object của sản phẩm tự thích
-ứng với hợp đồng — cái adapter đó là nơi duy nhất hai thế giới gặp nhau.
+`createAuthSetup(factory)` và `createAuthFixture(factory)` của dự án tiêu thụ hợp đồng
+này. Cả hai đều không biết là có tồn tại một màn hình đăng nhập. Page object của sản phẩm
+tự thích ứng với hợp đồng — cái adapter đó là nơi duy nhất hai thế giới gặp nhau.
 
 **Khởi tạo đối tượng** — `createPage(PageClass)` và `createClient(ClientClass)` dựng các
 class của sản phẩm từ fixture của framework mà không cần gọi tên bất kỳ class nào.
@@ -128,7 +132,10 @@ mỗi worker (một browser, một lần đăng nhập theo worker); việc ở 
 theo từng test (một page, một page object). Đặt một thứ đắt đỏ ở test scope là lỗi hiệu
 năng phổ biến nhất trong một suite Playwright.
 
-## 5. Session và chạy song song
+## 5. Session và chạy song song (code của DỰ ÁN)
+
+Phần này mô tả code mà `--auth` sinh vào dự án, không phải code của kit — nhưng ba luật
+bên dưới là lý do bộ sinh ra nó có hình dạng như vậy.
 
 Suite chạy `fullyParallel`. Ba luật giữ cho điều đó không biến thành một cơn bão đăng
 nhập:
@@ -174,7 +181,7 @@ Phân theo loại tri thức, không phải theo tên file:
 | Một mảnh UI dùng lại được | dự án: `src/components` | `BaseComponent`, giới hạn trong một root locator |
 | Một tài nguyên API | dự án: `src/api` | `BaseApiClient` từ `qc-kit/api` |
 | Dữ liệu test sinh ra | dự án: `src/data` | expose qua `createDataFixture` |
-| Một role đăng nhập thứ hai | dự án: `src/data` (ai) + `tests/setup` (khi nào) | `AuthenticatorFactory` + `createAuthSetup` |
+| Một role đăng nhập thứ hai | dự án: `src/data` (ai) + `tests/setup` (khi nào) + `src/core/auth.ts` (cơ chế) | không đụng kit |
 | Một môi trường | dự án: `src/env.ts` | một entry trong bảng — không cần gì thêm |
 | Một năng lực cắt ngang (dọn dữ liệu, giả lập network, matcher riêng) | **kit**: `src/core` + một fixture | phải dùng được cho mọi sản phẩm, nếu không thì nó không phải core |
 | Một bản mẫu cho dự án mới | **kit**: `cmd/scaffold/templates` | thêm entry vào `src/scaffold/plan.ts` |

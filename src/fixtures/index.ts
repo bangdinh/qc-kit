@@ -9,12 +9,12 @@
  *     pagesFixture,
  *     createApiFixture({ apiURL: config.apiURL }),
  *     createDataFixture({ accounts, buildUser }),
- *     createAuthFixture(standardUser, { baseURL: config.baseURL }),
  *     logFixture,
  *   );
  *
- * `createAuthFixture` lives in `qc-kit/core` — it is the auth contract, not a fixture
- * detail.
+ * Signing in is NOT in this list, and not in the kit at all: which screen, which cookie,
+ * how long a cached session is trusted are the product's answers. A project that needs it
+ * owns its own auth fixture and merges it here — see the `--auth` scaffold output.
  */
 export { pagesFixture, type PageFixtures, type PageObjectClass } from './pages.fixture';
 export {
