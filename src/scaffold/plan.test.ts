@@ -16,6 +16,7 @@ test('dự án tối thiểu có đủ file để chạy được ngay', () => {
     'src/fixtures.ts',
     'src/pages/ExamplePage.ts',
     'tests/ui/example.spec.ts',
+    'src/testid-convention.test.ts',
   ]) {
     expect(dests, `thiếu ${need}`).toContain(need);
   }
@@ -112,7 +113,7 @@ test.describe('skill nạp vào dự án', () => {
       '.claude/skills/jira/SKILL.md',
       '.claude/skills/jira/jira.sh',
       'docs/test-structure.example.md',
-      'docs/test-data.example.md',
+      'docs/data-testid-convention.example.md',
     ]) {
       expect(dests, `thiếu ${need}`).toContain(need);
     }
@@ -121,6 +122,17 @@ test.describe('skill nạp vào dự án', () => {
   test('jira.sh copy nguyên văn, không qua render', () => {
     const sh = plan(base).find((f) => f.dest === '.claude/skills/jira/jira.sh');
     expect(sh?.raw).toBe(true);
+  });
+
+  /*
+   * Lint quy ước testid là file DỰ ÁN SỞ HỮU, không phải asset dùng chung: mỗi dự án chia
+   * thư mục một kiểu nên ba hằng số đầu file phải sửa được mà `sync` không giành lại.
+   * Nó cũng đi thẳng, không qua render — không có placeholder nào để thay.
+   */
+  test('lint quy ước testid copy nguyên văn và KHÔNG nằm trong tập sync', () => {
+    const lint = plan(base).find((f) => f.dest === 'src/testid-convention.test.ts');
+    expect(lint?.raw).toBe(true);
+    expect(managedAssets().map((f) => f.dest)).not.toContain('src/testid-convention.test.ts');
   });
 });
 
@@ -142,6 +154,7 @@ test.describe('managedAssets — thứ `sync` được phép ghi đè', () => {
       'src/env.ts',
       'src/fixtures.ts',
       'src/pages/ExamplePage.ts',
+    'src/testid-convention.test.ts',
       'tests/ui/example.spec.ts',
     ]) {
       expect(dests, `sync đang ghi đè ${owned} — đó là file của dự án`).not.toContain(owned);
@@ -157,7 +170,7 @@ test.describe('managedAssets — thứ `sync` được phép ghi đè', () => {
       '.claude/skills/jira/jira.sh',
       '.jira.env.example',
       'docs/test-structure.example.md',
-      'docs/test-data.example.md',
+      'docs/data-testid-convention.example.md',
     ]);
   });
 });

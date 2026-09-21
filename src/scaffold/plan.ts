@@ -58,14 +58,16 @@ const MANAGED: PlannedFile[] = [
    */
   { template: 'docs/test-structure.example.md', dest: 'docs/test-structure.example.md' },
   /**
-   * Bản mẫu cho `docs/test-data.md` — file thứ hai mà `gen-script` đọc trước khi sinh.
+   * Bản mẫu cho `docs/data-testid-convention.md` — file luật thứ ba, và là file DUY NHẤT
+   * trong ba file mà thiếu nó `gen-script` vẫn chạy.
    *
-   * `test-structure` trả lời "thư mục chia thế nào", `test-data` trả lời "có sẵn trạng
-   * thái dữ liệu nào". Cả hai đều là tri thức của dự án, và cả hai đều là thứ generator
-   * sẽ ĐOÁN nếu không ai khai — đoán tên biến `.env` cho một tài khoản chưa ai cấp là
-   * cách nhanh nhất để có một bộ test trông chạy được mà không chạy được.
+   * Nó là hợp đồng đặt tên giữa Dev và bộ test. Có nó thì generator suy được tên
+   * `data-testid` theo công thức thay vì để `LOCATOR-TBD` trống; không có thì mọi thứ
+   * lùi về trạng thái cũ, không hỏng gì. Công thức và bảng hậu tố là quy ước của từng
+   * tổ chức nên kit chỉ phát hành bản mẫu — hardcode `-btn` ở đây là áp quy ước của
+   * một nơi lên mọi nơi.
    */
-  { template: 'docs/test-data.example.md', dest: 'docs/test-data.example.md' },
+  { template: 'docs/data-testid-convention.example.md', dest: 'docs/data-testid-convention.example.md' },
 ];
 
 /** Tập file mà `qc-kit sync` được phép ghi đè trong một dự án đã tồn tại. */
@@ -84,6 +86,11 @@ const ALWAYS: PlannedFile[] = [
   { template: 'src/env.ts', dest: 'src/env.ts' },
   { template: 'src/fixtures.ts', dest: 'src/fixtures.ts' },
   { template: 'src/pages/ExamplePage.ts', dest: 'src/pages/ExamplePage.ts' },
+  {
+    template: 'src/testid-convention.test.ts',
+    dest: 'src/testid-convention.test.ts',
+    raw: true,
+  },
   { template: 'tests/ui/example.spec.ts', dest: 'tests/ui/example.spec.ts' },
 ];
 
