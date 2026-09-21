@@ -83,8 +83,12 @@ runner thứ hai, đừng thêm vitest/jest.
   Dependency nặng khai `peerDependenciesMeta.optional`.
 - **Step**: mọi method public của page object và component bọc thân hàm trong
   `this.step(...)`.
-- **Locator**: `data-testid` là đích; chưa có thì theo thứ tự ưu tiên trong
-  `docs/`. Tuyệt đối không XPath.
+- **Locator**: `data-testid` là đích. Chưa có thì đi xuống thang, dừng ở tầng cao nhất còn
+  dùng được: ① vai trò ARIA không phụ thuộc text (`getByRole('banner')`, `getByLabel`) —
+  ② `id` hoặc thuộc tính ổn định — ③ text hiển thị hoặc XPath. Tầng ③ là **dự phòng hợp
+  lệ**, không bị cấm; đổi lại mỗi chỗ dùng phải có comment nói vì sao hai tầng trên không
+  dùng được. Cấm một thứ duy nhất: neo vào **dữ liệu của một tài khoản cụ thể** (email,
+  tên người) — đó là locator chỉ chạy trên máy một người.
 - **Chờ**: dựa vào auto-waiting và web-first assertion. `page.waitForTimeout` không được
   xuất hiện trong code đã commit.
 - **Secret**: chỉ trong `.env` / `.jira.env` / secret CI. Không bao giờ commit.
