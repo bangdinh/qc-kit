@@ -58,15 +58,6 @@ const MANAGED: PlannedFile[] = [
    */
   { template: 'docs/test-structure.example.md', dest: 'docs/test-structure.example.md' },
   /**
-   * Bản mẫu cho `docs/test-data.md` — file thứ hai mà `gen-script` đọc trước khi sinh.
-   *
-   * `test-structure` trả lời "thư mục chia thế nào", `test-data` trả lời "có sẵn trạng
-   * thái dữ liệu nào". Cả hai đều là tri thức của dự án, và cả hai đều là thứ generator
-   * sẽ ĐOÁN nếu không ai khai — đoán tên biến `.env` cho một tài khoản chưa ai cấp là
-   * cách nhanh nhất để có một bộ test trông chạy được mà không chạy được.
-   */
-  { template: 'docs/test-data.example.md', dest: 'docs/test-data.example.md' },
-  /**
    * Bản mẫu cho `docs/data-testid-convention.md` — file luật thứ ba, và là file DUY NHẤT
    * trong ba file mà thiếu nó `gen-script` vẫn chạy.
    *

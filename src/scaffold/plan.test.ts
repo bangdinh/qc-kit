@@ -113,7 +113,6 @@ test.describe('skill nạp vào dự án', () => {
       '.claude/skills/jira/SKILL.md',
       '.claude/skills/jira/jira.sh',
       'docs/test-structure.example.md',
-      'docs/test-data.example.md',
       'docs/data-testid-convention.example.md',
     ]) {
       expect(dests, `thiếu ${need}`).toContain(need);
@@ -171,7 +170,6 @@ test.describe('managedAssets — thứ `sync` được phép ghi đè', () => {
       '.claude/skills/jira/jira.sh',
       '.jira.env.example',
       'docs/test-structure.example.md',
-      'docs/test-data.example.md',
       'docs/data-testid-convention.example.md',
     ]);
   });
